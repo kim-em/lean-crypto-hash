@@ -1,0 +1,40 @@
+name = "lean-md5"
+version = "0.1.0"
+defaultTargets = ["MD5"]
+testRunner = "test"
+
+[[lean_lib]]
+name = "MD5"
+
+[[lean_exe]]
+name = "lean-md5"
+root = "Main"
+
+[[lean_exe]]
+name = "test"
+root = "Test"
+
+[[lean_exe]]
+name = "simpletest"
+root = "SimpleTest"
+
+[[lean_exe]]
+name = "hextest"
+root = "HexTest"
+
+[[lean_exe]]
+name = "verify"
+root = "VerifyHypothesis"
+
+[[lean_exe]]
+name = "md5"
+root = "MD5"
+
+[[lean_exe]]
+name = "md5sum"
+root = "MD5Sum"
+
+[[lean_exe]]
+name = "testfix"
+root = "TestFix"
+
