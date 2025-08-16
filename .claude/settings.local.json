@@ -14,7 +14,10 @@
       "Bash(md5:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "WebFetch(domain:www.apache.org)"
+      "WebFetch(domain:www.apache.org)",
+      "Bash(time lake:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(lake env lean:*)"
     ],
     "deny": [],
     "ask": [],

@@ -1,40 +1,40 @@
-name = "lean-md5"
+name = "lean-crypto-hash"
 version = "0.1.0"
-defaultTargets = ["MD5"]
+defaultTargets = ["Crypto", "test", "md5sum", "sha1sum", "sha224sum", "sha256sum", "sha384sum", "sha1sum", "sha512sum"]
 testRunner = "test"
 
 [[lean_lib]]
-name = "MD5"
+name = "Crypto"
 
-[[lean_exe]]
-name = "lean-md5"
-root = "Main"
-
+# Test executable
 [[lean_exe]]
 name = "test"
 root = "Test"
 
-[[lean_exe]]
-name = "simpletest"
-root = "SimpleTest"
-
-[[lean_exe]]
-name = "hextest"
-root = "HexTest"
-
-[[lean_exe]]
-name = "verify"
-root = "VerifyHypothesis"
-
-[[lean_exe]]
-name = "md5"
-root = "MD5"
-
+# Hash CLI tools
 [[lean_exe]]
 name = "md5sum"
-root = "MD5Sum"
+root = "md5sum"
 
 [[lean_exe]]
-name = "testfix"
-root = "TestFix"
+name = "sha1sum"
+root = "sha1sum"
+
+[[lean_exe]]
+name = "sha224sum"
+root = "sha224sum"
+
+[[lean_exe]]
+name = "sha256sum"
+root = "sha256sum"
+
+[[lean_exe]]
+name = "sha384sum"
+root = "sha384sum"
+
+[[lean_exe]]
+name = "sha512sum"
+root = "sha512sum"
+
+
 

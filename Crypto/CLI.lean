@@ -1,14 +1,16 @@
 /-
-Copyright (c) 2025 Lean FRO, LLC. All rights reserved.
+Copyright (c) 2025 Kim Morrison. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Kim Morrison
 -/
 
-import MD5.Defs
+import Crypto.Hash
 
-/-! # Command line interface for md5sum -/
+/-! # Shared CLI utilities for hash commands -/
 
-structure MD5SumOptions where
+namespace Crypto.CLI
+
+structure SHASumOptions where
   binary : Bool := false
   check : Bool := false
   tag : Bool := false
@@ -21,8 +23,8 @@ structure MD5SumOptions where
   warn : Bool := false
   files : List String := []
 
-def parseArgs (args : List String) : MD5SumOptions :=
-  let rec go (args : List String) (opts : MD5SumOptions) : MD5SumOptions :=
+def parseArgs (args : List String) : SHASumOptions :=
+  let rec go (args : List String) (opts : SHASumOptions) : SHASumOptions :=
     match args with
     | [] => opts
     | "-b" :: rest => go rest { opts with binary := true, text := false }
@@ -45,30 +47,22 @@ def parseArgs (args : List String) : MD5SumOptions :=
     | file :: rest => go rest { opts with files := opts.files ++ [file] }
   go args {}
 
-def formatHashSum (hash : String) (filename : String) (opts : MD5SumOptions) : String :=
+def formatHashSum (algName : String) (hash : String) (filename : String) (opts : SHASumOptions) : String :=
   let terminator := if opts.zero then "\x00" else "\n"
-  let mode_char := if opts.binary then "*" else " "
   if opts.tag then
-    s!"MD5 ({filename}) = {hash}{terminator}"
+    s!"{algName} ({filename}) = {hash}{terminator}"
+  else if opts.binary then
+    s!"{hash} *{filename}{terminator}"
   else
-    s!"{hash}  {mode_char}{filename}{terminator}"
-
-def hashFile (filename : String) : IO String := do
-  let content ← IO.FS.readFile filename
-  return content.md5
-
-def hashStdin : IO String := do
-  let stdin ← IO.getStdin
-  let input ← stdin.readToEnd
-  return input.md5
+    s!"{hash}  {filename}{terminator}"
 
 -- Parse a checksum line for --check mode
-def parseChecksumLine (line : String) : Option (String × String × Bool) :=
-  -- Handle BSD-style format: MD5 (filename) = hash
-  if line.startsWith "MD5 (" then
+def parseChecksumLine (algName : String) (line : String) : Option (String × String × Bool) :=
+  -- Handle BSD-style format: SHA256 (filename) = hash
+  if line.startsWith s!"{algName} (" then
     let parts := line.splitOn ") = "
     if parts.length == 2 then
-      let filename := (parts[0]!).drop 5  -- Remove "MD5 ("
+      let filename := (parts[0]!).drop (algName.length + 2)  -- Remove "ALG ("
       let hash := parts[1]!
       some (hash, filename, false)  -- text mode for BSD style
     else
@@ -86,9 +80,10 @@ def parseChecksumLine (line : String) : Option (String × String × Bool) :=
     else
       none
 
-def checkFile (filename : String) (expectedHash : String) (opts : MD5SumOptions) : IO Bool := do
+def checkFile (hashFunction : String → String) (filename : String) (expectedHash : String) (opts : SHASumOptions) : IO Bool := do
   try
-    let actualHash ← hashFile filename
+    let content ← IO.FS.readFile filename
+    let actualHash := hashFunction content
     let success := actualHash == expectedHash
     if not opts.status then
       if success then
@@ -105,7 +100,7 @@ def checkFile (filename : String) (expectedHash : String) (opts : MD5SumOptions)
         IO.println s!"{filename}: FAILED open or read"
       return false
 
-def runCheckMode (files : List String) (opts : MD5SumOptions) : IO Unit := do
+def runCheckMode (algName : String) (hashFunction : String → String) (files : List String) (opts : SHASumOptions) : IO Unit := do
   let mut allSuccess := true
   let mut hasErrors := false
   
@@ -115,17 +110,17 @@ def runCheckMode (files : List String) (opts : MD5SumOptions) : IO Unit := do
       let lines := content.splitOn "\n" |>.filter (fun line => line.trim != "")
       
       for line in lines do
-        match parseChecksumLine line with
+        match parseChecksumLine algName line with
         | some (expectedHash, filename, _binary) =>
-          let success ← checkFile filename expectedHash opts
+          let success ← checkFile hashFunction filename expectedHash opts
           if not success then
             allSuccess := false
         | none =>
           hasErrors := true
           if opts.warn || opts.strict then
-            IO.eprintln s!"md5sum: {file}: {line}: improperly formatted MD5 checksum line"
+            IO.eprintln s!"{algName.toLower}sum: {file}: {line}: improperly formatted {algName} checksum line"
     catch _ =>
-      IO.eprintln s!"md5sum: {file}: No such file or directory"
+      IO.eprintln s!"{algName.toLower}sum: {file}: No such file or directory"
       allSuccess := false
   
   if opts.strict && hasErrors then
@@ -134,9 +129,9 @@ def runCheckMode (files : List String) (opts : MD5SumOptions) : IO Unit := do
   if not allSuccess then
     throw (IO.userError "Checksum verification failed")
 
-def printHelp : IO Unit := do
-  IO.println "Usage: md5sum [OPTION]... [FILE]..."
-  IO.println "Print or check MD5 (128-bit) checksums."
+def printHelp (algName : String) (bits : String) : IO Unit := do
+  IO.println s!"Usage: {algName.toLower}sum [OPTION]... [FILE]..."
+  IO.println s!"Print or check {algName} ({bits}-bit) checksums."
   IO.println ""
   IO.println "With no FILE, or when FILE is -, read standard input."
   IO.println "  -b, --binary          read in binary mode"
@@ -156,18 +151,19 @@ def printHelp : IO Unit := do
   IO.println "      --help        display this help and exit"
   IO.println "      --version     output version information and exit"
 
-def printVersion : IO Unit := do
-  IO.println "md5sum (lean-md5) 1.0.0"
-  IO.println "Implementation of MD5 in Lean 4"
+def printVersion (algName : String) : IO Unit := do
+  IO.println s!"{algName.toLower}sum (lean-crypto-hash) 1.0.0"
+  IO.println s!"Implementation of {algName} in Lean 4"
 
-def main (args : List String) : IO Unit := do
+-- Generic version for any hash algorithm (backwards compatibility for MD5)
+def runHashSum (algName : String) (bits : String) (hashFunction : String → String) (args : List String) : IO Unit := do
   -- Handle special cases first
   if args.contains "--help" then
-    printHelp
+    printHelp algName bits
     return
   
   if args.contains "--version" then
-    printVersion
+    printVersion algName
     return
   
   let opts := parseArgs args
@@ -175,24 +171,34 @@ def main (args : List String) : IO Unit := do
   -- Handle check mode
   if opts.check then
     if opts.files.isEmpty then
-      IO.eprintln "md5sum: no files specified for checking"
+      IO.eprintln s!"{algName.toLower}sum: no files specified for checking"
       throw (IO.userError "No files specified")
-    runCheckMode opts.files opts
+    runCheckMode algName hashFunction opts.files opts
     return
   
   -- Handle normal hash computation
   if opts.files.isEmpty || opts.files == ["-"] then
     -- Read from stdin
-    let hash ← hashStdin
-    let formatted := formatHashSum hash "-" opts
+    let stdin ← IO.getStdin
+    let input ← stdin.readToEnd
+    let hash := hashFunction input
+    let formatted := formatHashSum algName hash "-" opts
     IO.print formatted
   else
     -- Process files
     for file in opts.files do
       try
-        let hash ← hashFile file
-        let formatted := formatHashSum hash file opts
+        let content ← IO.FS.readFile file
+        let hash := hashFunction content
+        let formatted := formatHashSum algName hash file opts
         IO.print formatted
       catch _ =>
-        IO.eprintln s!"md5sum: {file}: No such file or directory"
+        IO.eprintln s!"{algName.toLower}sum: {file}: No such file or directory"
         throw (IO.userError "File not found")
+
+-- Unified version using HashAlgorithm
+def runHashAlgorithm (algo : HashAlgorithm) (args : List String) : IO Unit := do
+  runHashSum algo.name (toString algo.bitSize) (String.hashWith algo) args
+
+
+end Crypto.CLI
