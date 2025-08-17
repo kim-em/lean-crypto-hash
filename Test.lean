@@ -60,6 +60,31 @@ def getSystemHashSum (hashCommand : String) (input : String) : IO String := do
 def getSystemMD5Sum (input : String) : IO String :=
   getSystemHashSum "md5sum" input
 
+-- SHA-3 testing functions using OpenSSL
+def getSystemSHA3Sum (variant : String) (input : String) : IO String := do
+  let output ← IO.Process.run {
+    cmd := "openssl"
+    args := #["dgst", s!"-sha3-{variant}"]
+  } input
+  -- OpenSSL output format: "SHA3-256(stdin)= hash"
+  let parts := output.trim.splitOn "= "
+  if parts.length >= 2 then
+    return parts[1]!
+  else
+    throw (IO.userError s!"Unexpected openssl SHA3-{variant} output format")
+
+def getSystemSHAKESum (variant : String) (length : Nat) (input : String) : IO String := do
+  let output ← IO.Process.run {
+    cmd := "openssl"
+    args := #["dgst", s!"-shake{variant}", "-xoflen", toString length]
+  } input
+  -- OpenSSL output format: "SHAKE-128(stdin)= hash"
+  let parts := output.trim.splitOn "= "
+  if parts.length >= 2 then
+    return parts[1]!
+  else
+    throw (IO.userError s!"Unexpected openssl SHAKE-{variant} output format")
+
 
 -- Generic SHA testing function parameterized by algorithm name, hash function, and system command getter
 def testSHAWithSystem (algName : String) (hashFunc : String → String) (getSystemSum : String → IO String) (input : String) (description : String) : IO Bool := do
@@ -160,6 +185,127 @@ def testMD5SumFileOption (filename : String) (args : Array String) (description 
 -- SHA-1 testing functions
 def testSHA1WithSystem (input : String) (description : String) : IO Bool :=
   testSHAWithSystem "SHA-1" String.sha1 (getSystemHashSum "sha1sum") input description
+
+-- SHA-3 testing functions  
+def testSHA3_224WithSystem (input : String) (description : String) : IO Bool := do
+  let ourResult := input.sha3_224
+  let systemOutput ← IO.Process.run {
+    cmd := "openssl"
+    args := #["dgst", "-sha3-224"]
+  } input
+  -- OpenSSL output format: "SHA3-224(stdin)= hash"
+  let parts := systemOutput.trim.splitOn "= "
+  if parts.length >= 2 then
+    let systemResult := parts[1]!
+    let success := ourResult == systemResult
+    if success then
+      IO.println s!"✓ SHA3-224 {description}: {ourResult}"
+    else
+      IO.println s!"✗ SHA3-224 {description}: expected {systemResult}, got {ourResult}"
+    return success
+  else
+    IO.println s!"✗ SHA3-224 {description}: unexpected openssl output format"
+    return false
+
+def testSHA3_256WithSystem (input : String) (description : String) : IO Bool := do
+  let ourResult := input.sha3_256
+  let systemOutput ← IO.Process.run {
+    cmd := "openssl"
+    args := #["dgst", "-sha3-256"]
+  } input
+  let parts := systemOutput.trim.splitOn "= "
+  if parts.length >= 2 then
+    let systemResult := parts[1]!
+    let success := ourResult == systemResult
+    if success then
+      IO.println s!"✓ SHA3-256 {description}: {ourResult}"
+    else
+      IO.println s!"✗ SHA3-256 {description}: expected {systemResult}, got {ourResult}"
+    return success
+  else
+    IO.println s!"✗ SHA3-256 {description}: unexpected openssl output format"
+    return false
+
+def testSHA3_384WithSystem (input : String) (description : String) : IO Bool := do
+  let ourResult := input.sha3_384
+  let systemOutput ← IO.Process.run {
+    cmd := "openssl"
+    args := #["dgst", "-sha3-384"]
+  } input
+  let parts := systemOutput.trim.splitOn "= "
+  if parts.length >= 2 then
+    let systemResult := parts[1]!
+    let success := ourResult == systemResult
+    if success then
+      IO.println s!"✓ SHA3-384 {description}: {ourResult}"
+    else
+      IO.println s!"✗ SHA3-384 {description}: expected {systemResult}, got {ourResult}"
+    return success
+  else
+    IO.println s!"✗ SHA3-384 {description}: unexpected openssl output format"
+    return false
+
+def testSHA3_512WithSystem (input : String) (description : String) : IO Bool := do
+  let ourResult := input.sha3_512
+  let systemOutput ← IO.Process.run {
+    cmd := "openssl"
+    args := #["dgst", "-sha3-512"]
+  } input
+  let parts := systemOutput.trim.splitOn "= "
+  if parts.length >= 2 then
+    let systemResult := parts[1]!
+    let success := ourResult == systemResult
+    if success then
+      IO.println s!"✓ SHA3-512 {description}: {ourResult}"
+    else
+      IO.println s!"✗ SHA3-512 {description}: expected {systemResult}, got {ourResult}"
+    return success
+  else
+    IO.println s!"✗ SHA3-512 {description}: unexpected openssl output format"
+    return false
+
+-- SHA-3 CLI test functions (compare against OpenSSL)
+def testSHA3SumAgainstOpenSSL (tool : String) (opensslVariant : String) (input : String) (description : String) : IO Bool := do
+  -- Test our CLI
+  let ourCLI ← IO.Process.run {
+    cmd := "lake"
+    args := #["exe", tool]
+  } input
+
+  -- Test OpenSSL
+  let opensslOutput ← IO.Process.run {
+    cmd := "openssl"
+    args := #["dgst", s!"-{opensslVariant}"]
+  } input
+
+  -- Extract hash from OpenSSL output (format: "SHA3-256(stdin)= hash")
+  let opensslParts := opensslOutput.trim.splitOn "= "
+  if opensslParts.length >= 2 then
+    let opensslHash := opensslParts[1]!
+    let expectedCLIOutput := s!"{opensslHash}  -"
+    let ourResult := ourCLI.trim
+    let success := ourResult == expectedCLIOutput
+    
+    if success then
+      IO.println s!"✓ {tool.toUpper} {description}: {ourResult}"
+    else
+      IO.println s!"✗ {tool.toUpper} {description}: expected {expectedCLIOutput}, got {ourResult}"
+    return success
+  else
+    IO.println s!"✗ {tool.toUpper} {description}: unexpected openssl output format"
+    return false
+
+def testSHA3_224Sum (input : String) (description : String) : IO Bool :=
+  testSHA3SumAgainstOpenSSL "sha3_224sum" "sha3-224" input description
+
+def testSHA3_256Sum (input : String) (description : String) : IO Bool :=
+  testSHA3SumAgainstOpenSSL "sha3_256sum" "sha3-256" input description
+
+def testSHA3_384Sum (input : String) (description : String) : IO Bool :=
+  testSHA3SumAgainstOpenSSL "sha3_384sum" "sha3-384" input description
+
+def testSHA3_512Sum (input : String) (description : String) : IO Bool :=
+  testSHA3SumAgainstOpenSSL "sha3_512sum" "sha3-512" input description
 
 -- SHA-1Sum CLI test functions
 def testSHA1SumCore (ourArgs : Array String) (systemArgs : Array String) (input : String) (description : String) : IO Bool :=
@@ -556,6 +702,21 @@ def runTests (args : List String := []) : IO Unit := do
   IO.println "\n=== Testing SHA-1 algorithm against system sha1sum ==="
   let sha1Results ← parallelMapM (testCases.map (fun (input, description) => testSHA1WithSystem input description))
 
+  -- Test SHA-3 algorithms against OpenSSL
+  IO.println "\n=== Testing SHA-3 algorithms against OpenSSL ==="
+  
+  IO.println "--- Testing SHA3-224 ---"
+  let sha3_224Results ← parallelMapM (testCases.map (fun (input, description) => testSHA3_224WithSystem input description))
+  
+  IO.println "--- Testing SHA3-256 ---"
+  let sha3_256Results ← parallelMapM (testCases.map (fun (input, description) => testSHA3_256WithSystem input description))
+  
+  IO.println "--- Testing SHA3-384 ---"
+  let sha3_384Results ← parallelMapM (testCases.map (fun (input, description) => testSHA3_384WithSystem input description))
+  
+  IO.println "--- Testing SHA3-512 ---"
+  let sha3_512Results ← parallelMapM (testCases.map (fun (input, description) => testSHA3_512WithSystem input description))
+
   -- Test MD5Sum CLI (mandatory)
   IO.println "\n=== Testing MD5Sum CLI (mandatory) ==="
 
@@ -684,6 +845,29 @@ def runTests (args : List String := []) : IO Unit := do
 
   IO.println "=== End SHA1Sum CLI tests ==="
 
+  -- Test SHA-3 CLI tools (comparing against OpenSSL)
+  IO.println "\n=== Testing SHA-3 CLI tools against OpenSSL ==="
+  
+  let sha3CLIResults ← parallelMapM [
+    testSHA3_224Sum "abc" "basic test",
+    testSHA3_224Sum "" "empty string",
+    testSHA3_224Sum "hello world" "with spaces",
+    
+    testSHA3_256Sum "abc" "basic test", 
+    testSHA3_256Sum "" "empty string",
+    testSHA3_256Sum "hello world" "with spaces",
+    
+    testSHA3_384Sum "abc" "basic test",
+    testSHA3_384Sum "" "empty string", 
+    testSHA3_384Sum "hello world" "with spaces",
+    
+    testSHA3_512Sum "abc" "basic test",
+    testSHA3_512Sum "" "empty string",
+    testSHA3_512Sum "hello world" "with spaces"
+  ]
+
+  IO.println "=== End SHA-3 CLI tests ==="
+
   -- Test all SHA algorithms against their respective system tools
   let allShaResults ← shaAlgorithms.mapM (fun variant => runSHAAlgorithmTests variant testCases)
 
@@ -719,8 +903,13 @@ def runTests (args : List String := []) : IO Unit := do
 
   let allTestsPassed := md5Results.all (· == true) &&
                         sha1Results.all (· == true) &&
+                        sha3_224Results.all (· == true) &&
+                        sha3_256Results.all (· == true) &&
+                        sha3_384Results.all (· == true) &&
+                        sha3_512Results.all (· == true) &&
                         allMd5SumCliResults.all (· == true) &&
                         allSha1SumCliResults.all (· == true) &&
+                        sha3CLIResults.all (· == true) &&
                         allShaResults.all (fun results => results.all (· == true)) &&
                         allBasicSHACLIResults.all (fun results => results.all (· == true)) &&
                         allComprehensiveCLIResults.all (fun results => results.all (· == true)) &&

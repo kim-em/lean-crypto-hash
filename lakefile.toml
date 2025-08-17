@@ -1,6 +1,6 @@
 name = "lean-crypto-hash"
 version = "0.1.0"
-defaultTargets = ["Crypto", "test", "md5sum", "sha1sum", "sha224sum", "sha256sum", "sha384sum", "sha1sum", "sha512sum"]
+defaultTargets = ["Crypto", "test", "md5sum", "sha1sum", "sha224sum", "sha256sum", "sha384sum", "sha512sum", "sha3_224sum", "sha3_256sum", "sha3_384sum", "sha3_512sum", "shake128sum", "shake256sum"]
 testRunner = "test"
 
 [[lean_lib]]
@@ -35,6 +35,32 @@ root = "sha384sum"
 [[lean_exe]]
 name = "sha512sum"
 root = "sha512sum"
+
+# SHA-3 CLI tools
+[[lean_exe]]
+name = "sha3_224sum"
+root = "sha3_224sum"
+
+[[lean_exe]]
+name = "sha3_256sum"
+root = "sha3_256sum"
+
+[[lean_exe]]
+name = "sha3_384sum"
+root = "sha3_384sum"
+
+[[lean_exe]]
+name = "sha3_512sum"
+root = "sha3_512sum"
+
+# SHAKE CLI tools
+[[lean_exe]]
+name = "shake128sum"
+root = "shake128sum"
+
+[[lean_exe]]
+name = "shake256sum"
+root = "shake256sum"
 
 
 

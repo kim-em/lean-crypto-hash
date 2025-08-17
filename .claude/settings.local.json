@@ -17,7 +17,9 @@
       "WebFetch(domain:www.apache.org)",
       "Bash(time lake:*)",
       "mcp__ide__getDiagnostics",
-      "Bash(lake env lean:*)"
+      "Bash(lake env lean:*)",
+      "WebFetch(domain:keccak.team)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": [],
     "ask": [],

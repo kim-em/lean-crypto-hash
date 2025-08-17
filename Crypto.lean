@@ -9,9 +9,10 @@ import Crypto.Hash
 import Crypto.MD5
 import Crypto.SHA1
 import Crypto.SHA2
+import Crypto.SHA3
 
 /-! # Cryptographic Hash Functions
 
 Main entry point for the lean-crypto-hash library.
-Provides unified access to MD5 and SHA-2 family hash functions.
+Provides unified access to MD5, SHA-1, SHA-2, and SHA-3 family hash functions.
 -/
