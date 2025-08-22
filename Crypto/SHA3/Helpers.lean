@@ -23,14 +23,14 @@ def emptyState : KeccakState := Vector.replicate 5 (Vector.replicate 5 0)
 
 -- Convert bytes to 64-bit word (little-endian)
 def bytesToUInt64LE (bytes : Vector UInt8 8) : UInt64 :=
-  bytes[0]!.toUInt64 |||
-  (bytes[1]!.toUInt64 <<< 8) |||
-  (bytes[2]!.toUInt64 <<< 16) |||
-  (bytes[3]!.toUInt64 <<< 24) |||
-  (bytes[4]!.toUInt64 <<< 32) |||
-  (bytes[5]!.toUInt64 <<< 40) |||
-  (bytes[6]!.toUInt64 <<< 48) |||
-  (bytes[7]!.toUInt64 <<< 56)
+  bytes[0].toUInt64 |||
+  (bytes[1].toUInt64 <<< 8) |||
+  (bytes[2].toUInt64 <<< 16) |||
+  (bytes[3].toUInt64 <<< 24) |||
+  (bytes[4].toUInt64 <<< 32) |||
+  (bytes[5].toUInt64 <<< 40) |||
+  (bytes[6].toUInt64 <<< 48) |||
+  (bytes[7].toUInt64 <<< 56)
 
 -- Convert 64-bit word to bytes (little-endian)
 def uint64ToLEBytes (value : UInt64) : Vector UInt8 8 := #v[
@@ -58,8 +58,8 @@ def ByteArray.toKeccakState (data : ByteArray) : KeccakState := Id.run do
       let mut bytes : Vector UInt8 8 := #v[0, 0, 0, 0, 0, 0, 0, 0]
       for j in List.finRange 8 do
         if h : startIdx + j.val < data.size then
-          bytes := bytes.set j data[startIdx + j.val]!
-      let row := state[y]!
+          bytes := bytes.set j data[startIdx + j.val]
+      let row := state[y]
       let newRow := row.set x (bytesToUInt64LE bytes)
       state := state.set y newRow
 
@@ -70,9 +70,9 @@ def KeccakState.toByteArray (state : KeccakState) : ByteArray := Id.run do
   let mut result : ByteArray := ByteArray.empty
   for y in List.finRange 5 do
     for x in List.finRange 5 do
-      let bytes := uint64ToLEBytes state[y]![x]!
+      let bytes := uint64ToLEBytes state[y][x]
       for j in List.finRange 8 do
-        result := result.push bytes[j]!
+        result := result.push bytes[j]
   result
 
 -- XOR a block of data into the state at the given rate

@@ -26,14 +26,14 @@ def expandMessageSchedule (block : Vector UInt32 16) : Vector UInt32 80 := Id.ru
   let mut W : Vector UInt32 80 := Vector.replicate 80 0
 
   -- First 16 words are copied directly from the input block
-  for h : i in [0:16] do
-    W := W.set i block[i] (by have := h.upper; grind)
+  for h : i in (0 : Nat) ... 16 do
+    W := W.set i block[i]
 
   -- Remaining 64 words are computed using the recurrence relation
-  for h : i in [16:80] do
-    let temp := W[i-3]! ^^^ W[i-8]! ^^^ W[i-14]! ^^^ W[i-16]!
+  for h : i in (16 : Nat) ... 80 do
+    let temp := W[i - 3] ^^^ W[i - 8] ^^^ W[i - 14] ^^^ W[i - 16]
     let newWord := temp.rotateLeft 1
-    W := W.set i newWord (by have := h.upper; grind)
+    W := W.set i newWord
 
   W
 
@@ -56,7 +56,7 @@ def compressBlock (H : Vector UInt32 5) (block : Vector UInt32 16) : Vector UInt
               else if i < 40 then K[1]
               else if i < 60 then K[2]
               else K[3]
-    
+
     let temp := a.rotateLeft 5 + f i b c d + e + W[i] + kt
     e := d
     d := c

@@ -25,15 +25,15 @@ def expandMessageSchedule (block : Vector UInt32 16) : Vector UInt32 64 := Id.ru
   let mut W : Vector UInt32 64 := Vector.replicate 64 0
 
   -- First 16 words are copied directly from the input block
-  for h : i in [0:16] do
-    W := W.set i block[i] (by have := h.upper; grind)
+  for h : i in (0 : Nat) ... 16 do
+    W := W.set i block[i]
 
   -- Remaining 48 words are computed using the recurrence relation
-  for h : i in [16:64] do
-    let s0 := sigma0 W[i-15]!
-    let s1 := sigma1 W[i-2]!
-    let newWord := W[i-16]! + s0 + W[i-7]! + s1
-    W := W.set i newWord (by have := h.upper; grind)
+  for h : i in (16 : Nat) ... 64 do
+    let s0 := sigma0 W[i-15]
+    let s1 := sigma1 W[i-2]
+    let newWord := W[i-16] + s0 + W[i-7] + s1
+    W := W.set i newWord
 
   W
 
@@ -101,17 +101,17 @@ def compressBlock (hash : Vector UInt64 8) (block : Vector UInt64 16) : Vector U
   let mut W : Vector UInt64 80 := Vector.replicate 80 0
 
   -- First 16 words are copied directly from the input block
-  for h : t in [0:16] do
-    W := W.set t block[t] (by have := h.upper; grind)
+  for h : t in (0 : Nat) ... 16 do
+    W := W.set t block[t]
 
   -- Extend to 80 words
-  for h : t in [16:80] do
-    let w_15 := W[t - 15]!
-    let w_2 := W[t - 2]!
-    let w_16 := W[t - 16]!
-    let w_7 := W[t - 7]!
+  for h : t in (16 : Nat) ... 80 do
+    let w_15 := W[t - 15]
+    let w_2 := W[t - 2]
+    let w_16 := W[t - 16]
+    let w_7 := W[t - 7]
     let newW := SHA512.sigma1 w_2 + w_7 + SHA512.sigma0 w_15 + w_16
-    W := W.set t newW (by have := h.upper; grind)
+    W := W.set t newW
 
   -- Initialize working variables
   let mut a := hash[0]

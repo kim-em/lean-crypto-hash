@@ -11,7 +11,7 @@ import Crypto.Lean.UInt
 
 This module implements the five primitive steps of the Keccak-f[1600] permutation:
 - θ (theta): Column parity computation
-- ρ (rho): Bitwise rotation  
+- ρ (rho): Bitwise rotation
 - π (pi): Lane permutation
 - χ (chi): Non-linear transformation
 - ι (iota): Round constant addition
@@ -26,10 +26,10 @@ abbrev KeccakState := Vector (Vector UInt64 5) 5
 
 -- Get/set lane at coordinates (x, y)
 def KeccakState.getLane (state : KeccakState) (x y : Fin 5) : UInt64 :=
-  state[y]![x]!
+  state[y][x]
 
 def KeccakState.setLane (state : KeccakState) (x y : Fin 5) (value : UInt64) : KeccakState :=
-  state.set y (state[y]!.set x value)
+  state.set y (state[y].set x value)
 
 -- θ (Theta) step: Column parity computation
 def thetaStep (state : KeccakState) : KeccakState := Id.run do
@@ -40,21 +40,21 @@ def thetaStep (state : KeccakState) : KeccakState := Id.run do
     for y in List.finRange 5 do
       parity := parity ^^^ state.getLane x y
     C := C.set x parity
-  
+
   -- Compute D[x] = C[(x+4)%5] ⊕ ROL(C[(x+1)%5], 1)
   let mut D : Vector UInt64 5 := #v[0, 0, 0, 0, 0]
   for x in List.finRange 5 do
     let prevX : Fin 5 := ⟨(x.val + 4) % 5, by omega⟩
     let nextX : Fin 5 := ⟨(x.val + 1) % 5, by omega⟩
-    D := D.set x (C[prevX]! ^^^ C[nextX]!.rotateLeft 1)
-  
+    D := D.set x (C[prevX] ^^^ C[nextX].rotateLeft 1)
+
   -- Apply D to each lane: state[x,y] ⊕= D[x]
   let mut newState := state
   for x in List.finRange 5 do
     for y in List.finRange 5 do
       let oldValue := newState.getLane x y
-      newState := newState.setLane x y (oldValue ^^^ D[x]!)
-  
+      newState := newState.setLane x y (oldValue ^^^ D[x])
+
   newState
 
 -- ρ (Rho) step: Bitwise rotation of each lane
@@ -62,7 +62,7 @@ def rhoStep (state : KeccakState) : KeccakState := Id.run do
   let mut newState := state
   for x in List.finRange 5 do
     for y in List.finRange 5 do
-      let offset := rotationOffsets[y]![x]!
+      let offset := rotationOffsets[y][x]
       let oldValue := state.getLane x y
       let newValue := oldValue.rotateLeft offset.toNat
       newState := newState.setLane x y newValue
@@ -88,20 +88,20 @@ def chiStep (state : KeccakState) : KeccakState := Id.run do
     let mut row : Vector UInt64 5 := #v[0, 0, 0, 0, 0]
     for x in List.finRange 5 do
       row := row.set x (state.getLane x y)
-    
+
     -- Apply χ transformation: A[x] = B[x] ⊕ ((¬B[(x+1)%5]) ∧ B[(x+2)%5])
     for x in List.finRange 5 do
       let x1 : Fin 5 := ⟨(x.val + 1) % 5, by omega⟩
       let x2 : Fin 5 := ⟨(x.val + 2) % 5, by omega⟩
-      let newValue := row[x]! ^^^ ((~~~row[x1]!) &&& row[x2]!)
+      let newValue := row[x] ^^^ ((~~~row[x1]) &&& row[x2])
       newState := newState.setLane x y newValue
-  
+
   newState
 
 -- ι (Iota) step: Round constant addition
 def iotaStep (state : KeccakState) (round : Fin 24) : KeccakState :=
   let oldValue := state.getLane 0 0
-  let roundConstant := roundConstants[round]!
+  let roundConstant := roundConstants[round]
   let newValue := oldValue ^^^ roundConstant
   state.setLane 0 0 newValue
 

@@ -48,7 +48,7 @@ private def messageToBlocks (msg : ByteArray) : Array (Vector UInt32 16) :=
     let blockStart := i.val * 64
     Vector.ofFn fun j =>
       let byteStart := blockStart + j.val * 4
-      bytesToWord msg[byteStart]! msg[byteStart + 1]! msg[byteStart + 2]! msg[byteStart + 3]!
+      bytesToWord msg[byteStart] msg[byteStart + 1] msg[byteStart + 2] msg[byteStart + 3]
 
 abbrev MD5State := Vector UInt32 4
 

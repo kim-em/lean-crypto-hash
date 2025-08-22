@@ -14,8 +14,8 @@ including conversion from Vector of UInt32/UInt64 words.
 Internal utility for converting hash results to BitVec format. -/
 def BitVec.ofVectorUInt32 (words : Vector UInt32 n) : BitVec (n * 32) := Id.run do
   let mut result : BitVec (n * 32) := 0
-  for i in [0:n] do
-    let word := words[i]!.toNat
+  for h : i in [0:n] do
+    let word := words[i].toNat
     result := result ||| (BitVec.ofNat (n * 32) (word.shiftLeft (32 * (n - 1 - i))))
   result
 
@@ -23,7 +23,7 @@ def BitVec.ofVectorUInt32 (words : Vector UInt32 n) : BitVec (n * 32) := Id.run 
 Internal utility for converting hash results to BitVec format. -/
 def BitVec.ofVectorUInt64 (words : Vector UInt64 n) : BitVec (n * 64) := Id.run do
   let mut result : BitVec (n * 64) := 0
-  for i in [0:n] do
-    let word := words[i]!.toNat
+  for h : i in [0: n] do
+    let word := words[i].toNat
     result := result ||| (BitVec.ofNat (n * 64) (word.shiftLeft (64 * (n - 1 - i))))
   result
