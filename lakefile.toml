@@ -8,6 +8,7 @@ name = "Crypto"
 
 # Test executable
 [[lean_exe]]
+needs = ["Crypto", "md5sum", "sha1sum", "sha224sum", "sha256sum", "sha384sum", "sha512sum", "sha3_224sum", "sha3_256sum", "sha3_384sum", "sha3_512sum", "shake128sum", "shake256sum"]
 name = "test"
 root = "Test"
 

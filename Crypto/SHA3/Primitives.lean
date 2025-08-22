@@ -34,7 +34,7 @@ def KeccakState.setLane (state : KeccakState) (x y : Fin 5) (value : UInt64) : K
 -- θ (Theta) step: Column parity computation
 def thetaStep (state : KeccakState) : KeccakState := Id.run do
   -- Compute column parities C[x] = state[x,0] ⊕ state[x,1] ⊕ ... ⊕ state[x,4]
-  let mut C : Vector UInt64 5 := #v[0, 0, 0, 0, 0]
+  let mut C : Vector UInt64 5 := 0
   for x in List.finRange 5 do
     let mut parity : UInt64 := 0
     for y in List.finRange 5 do
@@ -42,11 +42,9 @@ def thetaStep (state : KeccakState) : KeccakState := Id.run do
     C := C.set x parity
 
   -- Compute D[x] = C[(x+4)%5] ⊕ ROL(C[(x+1)%5], 1)
-  let mut D : Vector UInt64 5 := #v[0, 0, 0, 0, 0]
+  let mut D : Vector UInt64 5 := 0
   for x in List.finRange 5 do
-    let prevX : Fin 5 := ⟨(x.val + 4) % 5, by omega⟩
-    let nextX : Fin 5 := ⟨(x.val + 1) % 5, by omega⟩
-    D := D.set x (C[prevX] ^^^ C[nextX].rotateLeft 1)
+    D := D.set x (C[x + 4] ^^^ C[x + 1].rotateLeft 1)
 
   -- Apply D to each lane: state[x,y] ⊕= D[x]
   let mut newState := state
@@ -74,10 +72,7 @@ def piStep (state : KeccakState) : KeccakState := Id.run do
   for x in List.finRange 5 do
     for y in List.finRange 5 do
       -- New position: (y, (2*x + 3*y) % 5)
-      let newX := y
-      let newY : Fin 5 := ⟨(2 * x.val + 3 * y.val) % 5, by omega⟩
-      let value := state.getLane x y
-      newState := newState.setLane newX newY value
+      newState := newState.setLane y (2 * x + 3 * y) (state.getLane x y)
   newState
 
 -- χ (Chi) step: Non-linear transformation
@@ -85,16 +80,13 @@ def chiStep (state : KeccakState) : KeccakState := Id.run do
   let mut newState := state
   for y in List.finRange 5 do
     -- Process each row independently
-    let mut row : Vector UInt64 5 := #v[0, 0, 0, 0, 0]
+    let mut row : Vector UInt64 5 := 0
     for x in List.finRange 5 do
       row := row.set x (state.getLane x y)
 
     -- Apply χ transformation: A[x] = B[x] ⊕ ((¬B[(x+1)%5]) ∧ B[(x+2)%5])
     for x in List.finRange 5 do
-      let x1 : Fin 5 := ⟨(x.val + 1) % 5, by omega⟩
-      let x2 : Fin 5 := ⟨(x.val + 2) % 5, by omega⟩
-      let newValue := row[x] ^^^ ((~~~row[x1]) &&& row[x2])
-      newState := newState.setLane x y newValue
+      newState := newState.setLane x y (row[x] ^^^ ((~~~row[x + 1]) &&& row[x + 2]))
 
   newState
 
