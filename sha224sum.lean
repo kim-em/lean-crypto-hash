@@ -12,4 +12,4 @@ import Crypto.SHA2
 open Crypto.CLI
 
 def main (args : List String) : IO Unit :=
-  runHashAlgorithm HashAlgorithm.sha224 args
+  runHashSum HashAlgorithm.sha224 args

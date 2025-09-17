@@ -7,6 +7,8 @@ Authors: Kim Morrison
 import Crypto.CLI
 import Crypto.SHA3
 
+open Crypto.CLI
+
 /-! # SHA3-384 Command Line Tool
 
 Command-line interface for SHA3-384 hash function.
@@ -17,5 +19,5 @@ SHA-3 is cryptographically secure and suitable for all applications requiring
 strong hash functions. SHA3-384 provides 384-bit output with high security.
 -/
 
-def main (args : List String) : IO Unit := 
-  Crypto.CLI.runHashSum "SHA3-384" "384" String.sha3_384 args
+def main (args : List String) : IO Unit :=
+  runHashSum HashAlgorithm.sha3_384 args

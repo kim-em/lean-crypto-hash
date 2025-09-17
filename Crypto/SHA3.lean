@@ -43,3 +43,4 @@ to a degree dependent on the output size.
 -- Re-export all SHA-3 functionality
 namespace CryptoHash.SHA3
 end CryptoHash.SHA3
+

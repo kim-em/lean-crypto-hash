@@ -7,6 +7,8 @@ Authors: Kim Morrison
 import Crypto.CLI
 import Crypto.SHA3
 
+open Crypto.CLI
+
 /-! # SHAKE256 Command Line Tool
 
 Command-line interface for SHAKE256 extendable output function.
@@ -66,7 +68,4 @@ def main (args : List String) : IO Unit := do
 
   let (outputLength, remainingArgs) ← parseArgs args
 
-  -- Create a hash function with the specified length
-  let hashFunc : String → String := fun input => input.shake256 outputLength
-
-  Crypto.CLI.runHashSum "SHAKE256" s!"{outputLength * 8}" hashFunc remainingArgs
+  runHashSum (HashAlgorithm.shake256 outputLength) remainingArgs

@@ -80,10 +80,11 @@ def parseChecksumLine (algName : String) (line : String) : Option (String × Str
     else
       none
 
-def checkFile (hashFunction : String → String) (filename : String) (expectedHash : String) (opts : SHASumOptions) : IO Bool := do
+def checkFile (algo : HashAlgorithm) (filename : String) (expectedHash : String) (opts : SHASumOptions) : IO Bool := do
   try
-    let content ← IO.FS.readFile filename
-    let actualHash := hashFunction content
+    let content ← IO.FS.readBinFile filename
+    let actualHash := ByteArray.hashWithHex algo content
+
     let success := actualHash == expectedHash
     if not opts.status then
       if success then
@@ -100,34 +101,35 @@ def checkFile (hashFunction : String → String) (filename : String) (expectedHa
         IO.println s!"{filename}: FAILED open or read"
       return false
 
-def runCheckMode (algName : String) (hashFunction : String → String) (files : List String) (opts : SHASumOptions) : IO Unit := do
+def runCheckMode (algo : HashAlgorithm) (files : List String) (opts : SHASumOptions) : IO Unit := do
   let mut allSuccess := true
   let mut hasErrors := false
-  
+
   for file in files do
     try
       let content ← IO.FS.readFile file
       let lines := content.splitOn "\n" |>.filter (fun line => line.trim != "")
-      
+
       for line in lines do
-        match parseChecksumLine algName line with
+        match parseChecksumLine algo.name line with
         | some (expectedHash, filename, _binary) =>
-          let success ← checkFile hashFunction filename expectedHash opts
+          let success ← checkFile algo filename expectedHash opts
           if not success then
             allSuccess := false
         | none =>
           hasErrors := true
           if opts.warn || opts.strict then
-            IO.eprintln s!"{algName.toLower}sum: {file}: {line}: improperly formatted {algName} checksum line"
+            IO.eprintln s!"{algo.name.toLower}sum: {file}: {line}: improperly formatted {algo.name} checksum line"
     catch _ =>
-      IO.eprintln s!"{algName.toLower}sum: {file}: No such file or directory"
+      IO.eprintln s!"{algo.name.toLower}sum: {file}: No such file or directory"
       allSuccess := false
-  
+
   if opts.strict && hasErrors then
     throw (IO.userError "Improperly formatted checksum lines detected")
-  
+
   if not allSuccess then
     throw (IO.userError "Checksum verification failed")
+
 
 def printHelp (algName : String) (bits : String) : IO Unit := do
   IO.println s!"Usage: {algName.toLower}sum [OPTION]... [FILE]..."
@@ -155,50 +157,47 @@ def printVersion (algName : String) : IO Unit := do
   IO.println s!"{algName.toLower}sum (lean-crypto-hash) 1.0.0"
   IO.println s!"Implementation of {algName} in Lean 4"
 
--- Generic version for any hash algorithm (backwards compatibility for MD5)
-def runHashSum (algName : String) (bits : String) (hashFunction : String → String) (args : List String) : IO Unit := do
+
+
+def runHashSum (algo : HashAlgorithm) (args : List String) : IO Unit := do
   -- Handle special cases first
   if args.contains "--help" then
-    printHelp algName bits
+    printHelp algo.name (toString algo.bitSize)
     return
-  
+
   if args.contains "--version" then
-    printVersion algName
+    printVersion algo.name
     return
-  
+
   let opts := parseArgs args
-  
+
   -- Handle check mode
   if opts.check then
     if opts.files.isEmpty then
-      IO.eprintln s!"{algName.toLower}sum: no files specified for checking"
+      IO.eprintln s!"{algo.name.toLower}sum: no files specified for checking"
       throw (IO.userError "No files specified")
-    runCheckMode algName hashFunction opts.files opts
+    runCheckMode algo opts.files opts
     return
-  
+
   -- Handle normal hash computation
   if opts.files.isEmpty || opts.files == ["-"] then
     -- Read from stdin
     let stdin ← IO.getStdin
     let input ← stdin.readToEnd
-    let hash := hashFunction input
-    let formatted := formatHashSum algName hash "-" opts
+    let hash := String.hashWith algo input
+    let formatted := formatHashSum algo.name hash "-" opts
     IO.print formatted
   else
     -- Process files
     for file in opts.files do
       try
-        let content ← IO.FS.readFile file
-        let hash := hashFunction content
-        let formatted := formatHashSum algName hash file opts
+        let content ← IO.FS.readBinFile file
+        let hash := ByteArray.hashWithHex algo content
+        let formatted := formatHashSum algo.name hash file opts
         IO.print formatted
       catch _ =>
-        IO.eprintln s!"{algName.toLower}sum: {file}: No such file or directory"
+        IO.eprintln s!"{algo.name.toLower}sum: {file}: No such file or directory"
         throw (IO.userError "File not found")
-
--- Unified version using HashAlgorithm
-def runHashAlgorithm (algo : HashAlgorithm) (args : List String) : IO Unit := do
-  runHashSum algo.name (toString algo.bitSize) (String.hashWith algo) args
 
 
 end Crypto.CLI

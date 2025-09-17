@@ -665,6 +665,49 @@ def runSHAComprehensiveCLITests (algo : HashAlgorithm) : IO (List Bool × List S
     IO.println message
     return ([], [message])
 
+-- Test binary file handling
+def testBinaryFileHandling : IO Bool := do
+  -- Create a test binary file with null bytes and invalid UTF-8
+  let binaryFile := "/tmp/test_binary_file.bin"
+  let binaryData := ByteArray.mk #[0x00, 0x01, 0xFF, 0xFE, 0x80, 0x00, 0x00]
+  IO.FS.writeBinFile binaryFile binaryData
+
+  -- Test our sha256sum with the binary file
+  let result ← try
+    let output ← IO.Process.run {
+      cmd := "lake"
+      args := #["exe", "sha256sum", binaryFile]
+    } ""
+    -- Extract hash from output
+    let hash := output.trim.splitOn "  " |>.head!
+
+    -- Compare with system sha256sum if available
+    let systemCmd ← findSystemCommand "sha256sum"
+    match systemCmd with
+    | some path =>
+      let systemOutput ← IO.Process.run {
+        cmd := path
+        args := #[binaryFile]
+      } ""
+      let systemHash := systemOutput.trim.splitOn "  " |>.head!
+      let success := hash == systemHash
+      if success then
+        IO.println s!"✓ Binary file test: {hash}"
+      else
+        IO.println s!"✗ Binary file test: expected {systemHash}, got {hash}"
+      pure success
+    | none =>
+      IO.println s!"✓ Binary file test (no system sha256sum): {hash}"
+      pure true  -- Don't fail if system tool not available
+  catch _ =>
+    IO.println "✗ Binary file test: FAILED to hash binary file"
+    IO.println "  This means IO.FS.readFile was used instead of IO.FS.readBinFile"
+    pure false
+  finally
+    try IO.FS.removeFile binaryFile catch _ => pure ()
+
+  return result
+
 def runTests (args : List String := []) : IO Unit := do
   -- Define all test cases as pairs of (input, description)
   let testCases := [
@@ -886,6 +929,10 @@ def runTests (args : List String := []) : IO Unit := do
 
   IO.println "=== End comprehensive SHA CLI options tests ==="
 
+  -- Test binary file handling (critical test!)
+  IO.println "\n=== Testing Binary File Handling ==="
+  let binaryTestResult ← testBinaryFileHandling
+
   -- Run NIST validation tests (includes million character tests)
   let nistResults ← runNISTValidation
 
@@ -913,6 +960,7 @@ def runTests (args : List String := []) : IO Unit := do
                         allShaResults.all (fun results => results.all (· == true)) &&
                         allBasicSHACLIResults.all (fun results => results.all (· == true)) &&
                         allComprehensiveCLIResults.all (fun results => results.all (· == true)) &&
+                        binaryTestResult &&
                         nistResults &&
                         extremeTestResults
 

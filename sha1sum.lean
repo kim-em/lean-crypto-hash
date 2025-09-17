@@ -4,7 +4,6 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Kim Morrison
 -/
 
-import Crypto.SHA1
 import Crypto.CLI
 
 /-!
@@ -34,4 +33,4 @@ security purposes. This tool is provided for compatibility with legacy systems o
 open Crypto.CLI
 
 def main (args : List String) : IO Unit :=
-  runHashSum "SHA1" "160" String.sha1 args
+  runHashSum HashAlgorithm.sha1 args
