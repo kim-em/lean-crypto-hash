@@ -27,10 +27,12 @@ def expandMessageSchedule (block : Vector UInt32 16) : Vector UInt32 80 := Id.ru
 
   -- First 16 words are copied directly from the input block
   for h : i in (0 : Nat) ... 16 do
+    have hi : i < 16 := Std.PRange.lt_upper_of_mem h
     W := W.set i block[i]
 
   -- Remaining 64 words are computed using the recurrence relation
   for h : i in (16 : Nat) ... 80 do
+    have hi : i < 80 := Std.PRange.lt_upper_of_mem h
     let temp := W[i - 3] ^^^ W[i - 8] ^^^ W[i - 14] ^^^ W[i - 16]
     let newWord := temp.rotateLeft 1
     W := W.set i newWord
