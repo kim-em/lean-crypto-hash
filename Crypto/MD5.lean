@@ -76,7 +76,7 @@ def _root_.UInt32.toHex (w : UInt32) : String :=
   let chars := bytes.foldr (fun b acc =>
     Char.ofUInt8 (b / 16 + if b / 16 < 10 then 48 else 87) ::
     Char.ofUInt8 (b % 16 + if b % 16 < 10 then 48 else 87) :: acc) []
-  String.mk chars
+  String.ofList chars
 
 def MD5State.toHex (state : MD5State) : String :=
   state[0].toHex ++ state[1].toHex ++ state[2].toHex ++ state[3].toHex

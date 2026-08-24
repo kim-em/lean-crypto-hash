@@ -60,7 +60,7 @@ def digitToHex (n : Nat) : Char :=
 /-- Convert ByteArray to lowercase hex string.
 Internal utility for converting byte arrays to hex strings. -/
 def ByteArray.toHexString (data : ByteArray) : String :=
-  String.mk (data.toList.flatMap fun byte =>
+  String.ofList (data.toList.flatMap fun byte =>
     let hi := byte.toNat.shiftRight 4
     let lo := byte.toNat.land 15
     [digitToHex hi, digitToHex lo])

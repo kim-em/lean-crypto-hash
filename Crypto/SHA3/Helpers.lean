@@ -152,7 +152,7 @@ def ByteArray.toHexString (data : ByteArray) : String := Id.run do
     toHex (b : UInt8) : String :=
       let hi := (b >>> 4) &&& 0xF
       let lo := b &&& 0xF
-      String.mk [toChar hi, toChar lo]
+      String.ofList [toChar hi, toChar lo]
 
     toChar (n : UInt8) : Char :=
       if n < 10 then Char.ofNat ('0'.toNat + n.toNat)
