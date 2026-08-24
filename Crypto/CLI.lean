@@ -399,7 +399,7 @@ private def runHashSum (algo : HashSpec) (args : List String) : IO Unit := do
     runCheckMode algo opts.files opts
     return
   if opts.tag && opts.modeSpecified && !opts.binary then
-    IO.eprintln s!"{algo.tool}: --text mode is only supported with --untagged"
+    IO.eprintln s!"{algo.tool}: --tag does not support --text mode"
     throw (IO.userError "unsupported option combination")
   let verificationOnly :=
     if opts.ignoreMissing then some "--ignore-missing"
