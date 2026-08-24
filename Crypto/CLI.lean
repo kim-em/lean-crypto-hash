@@ -3,8 +3,12 @@ Copyright (c) 2025 Kim Morrison. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Kim Morrison
 -/
+module
 
-import Crypto.Hash
+
+public import Crypto.Hash
+
+public section
 
 /-! # Shared, binary-safe CLI utilities for hash commands -/
 
@@ -50,7 +54,7 @@ private def xofSpec (algorithm : Hash.XofAlgorithm) (outputBytes : Nat)
   update := Hash.XofContext.update
   finalizeHex context := (context.finalize.read outputBytes).1.toHex
 
-structure SHASumOptions where
+public structure SHASumOptions where
   binary : Bool := false
   modeSpecified : Bool := false
   check : Bool := false
@@ -168,11 +172,10 @@ def formatHashSum (algName : String) (hash : String) (filename : String)
     let marker := if opts.binary then " *" else "  "
     s!"{linePrefix}{hash}{marker}{shownFilename}{terminator}"
 
-private def isHexDigit (c : Char) : Bool :=
-  ('0' ≤ c && c ≤ '9') || ('a' ≤ c && c ≤ 'f') || ('A' ≤ c && c ≤ 'F')
-
 private def validHash (hash : String) (hexDigits : Nat) : Bool :=
-  hash.length == hexDigits && hash.toList.all isHexDigit
+  match Crypto.Hex.decode? hash with
+  | some bytes => bytes.size * 2 == hexDigits
+  | none => false
 
 /-- Parse a checksum record in GNU or BSD (`--tag`) form. -/
 def parseChecksumLine (algName : String) (hexDigits : Nat)
@@ -399,7 +402,7 @@ private def runHashSum (algo : HashSpec) (args : List String) : IO Unit := do
     runCheckMode algo opts.files opts
     return
   if opts.tag && opts.modeSpecified && !opts.binary then
-    IO.eprintln s!"{algo.tool}: --tag does not support --text mode"
+    IO.eprintln s!"{algo.tool}: --text mode is only supported with --untagged"
     throw (IO.userError "unsupported option combination")
   let verificationOnly :=
     if opts.ignoreMissing then some "--ignore-missing"

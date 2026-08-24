@@ -3,8 +3,12 @@ Copyright (c) 2025 Kim Morrison. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Kim Morrison
 -/
+module
 
-import Crypto.Lean.UInt
+
+public import Crypto.Lean.UInt
+
+public section
 
 /-! # SHA-3/Keccak Constants
 
@@ -39,7 +43,7 @@ def rotationOffsets : Vector (Vector UInt32 5) 5 := #v[
 
 
 -- SHA-3 variant parameters (rate and capacity in bits)
-structure SHA3Params where
+public structure SHA3Params where
   rate : Nat          -- Rate in bits
   capacity : Nat      -- Capacity in bits
   outputLength : Nat  -- Output length in bits

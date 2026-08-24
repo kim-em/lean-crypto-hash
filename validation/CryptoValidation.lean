@@ -1,5 +1,10 @@
-import Crypto
-import CryptoValidation.Proofs
+module
+
+public import Crypto
+public import CryptoValidation.Proofs
+import CryptoValidation.PublicSurface
+
+public section
 
 /-!
 # Downstream validation package

@@ -1,4 +1,9 @@
+module
+
 import Crypto
+import Crypto.Lean.UInt
+
+public section
 
 /-!
 Microbenchmark for the public digest-representation gate. It compares consuming a

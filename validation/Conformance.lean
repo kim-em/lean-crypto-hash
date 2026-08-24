@@ -3,9 +3,13 @@ Copyright (c) 2025 Kim Morrison. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Kim Morrison
 -/
+module
 
-import Crypto
-import CryptoValidation.OfficialVectors
+
+public import Crypto
+public import CryptoValidation.OfficialVectors
+
+public section
 
 open Crypto.Hash
 
@@ -108,6 +112,64 @@ def getSystemSHAKESum (variant : String) (length : Nat) (input : String) : IO St
     return parts[1]!
   else
     throw (IO.userError s!"Unexpected openssl SHAKE-{variant} output format")
+
+private def hmacOpenSSLName : Crypto.HMAC.Algorithm → String
+  | .sha224 => "sha224"
+  | .sha256 => "sha256"
+  | .sha384 => "sha384"
+  | .sha512 => "sha512"
+
+private def hmacBlockBytes : Crypto.HMAC.Algorithm → Nat
+  | .sha224 | .sha256 => 64
+  | .sha384 | .sha512 => 128
+
+private def patternedBytes (size salt : Nat) : ByteArray :=
+  ByteArray.mk <| Array.ofFn fun i : Fin size => (i.val * 37 + salt).toUInt8
+
+private def testHmacAgainstOpenSSL (algorithm : Crypto.HMAC.Algorithm)
+    (key message : ByteArray) (description : String) : IO Bool := do
+  let path := tempFile s!"hmac-{hmacOpenSSLName algorithm}-{key.size}-{message.size}.bin"
+  IO.FS.writeBinFile path message
+  try
+    let output ← IO.Process.run {
+      cmd := "openssl"
+      args := #["dgst", s!"-{hmacOpenSSLName algorithm}", "-mac", "HMAC", "-macopt",
+        s!"hexkey:{Crypto.Hex.encode key}", path]
+    } ""
+    let parts := output.trimAscii.toString.splitOn "= "
+    if parts.length < 2 then
+      IO.eprintln s!"FAILED {algorithm.name} {description}: unexpected OpenSSL output"
+      return false
+    let expected := parts[1]!.trimAscii.toString.toLower
+    let actual := Crypto.HMAC.computeHex algorithm key message
+    let blockBytes := hmacBlockBytes algorithm
+    let firstEnd := min 1 message.size
+    let secondEnd := min blockBytes message.size
+    let chunks := [message.extract 0 firstEnd, ByteArray.empty,
+      message.extract firstEnd secondEnd, message.extract secondEnd message.size]
+    let chunked := Crypto.HMAC.computeChunks algorithm key chunks |>.toHex
+    let success := actual == expected && chunked == actual
+    if success then
+      IO.println s!"✓ {algorithm.name} {description}"
+    else
+      IO.eprintln s!"FAILED {algorithm.name} {description}: expected {expected}, got {actual}"
+    return success
+  finally
+    try IO.FS.removeFile path catch _ => pure ()
+
+private def runHmacOracleTests (algorithm : Crypto.HMAC.Algorithm) : IO (List Bool) := do
+  let blockBytes := hmacBlockBytes algorithm
+  let cases :=
+    [ (patternedBytes 1 0x11, ByteArray.empty, "empty message"),
+      (patternedBytes (blockBytes - 1) 0x22, patternedBytes 1 0x33, "short key"),
+      (patternedBytes blockBytes 0x44, patternedBytes (blockBytes - 1) 0x55,
+        "block-sized key"),
+      (patternedBytes (blockBytes + 1) 0x66, patternedBytes blockBytes 0x77,
+        "oversized key"),
+      (patternedBytes (blockBytes * 2 + 3) 0x88,
+        patternedBytes (blockBytes * 2 + 1) 0x99, "multi-block binary input") ]
+  cases.mapM fun (key, message, description) =>
+    testHmacAgainstOpenSSL algorithm key message description
 
 
 -- Generic SHA testing function parameterized by algorithm name, hash function, and system command getter
@@ -768,6 +830,10 @@ def runTests (args : List String := []) : IO Unit := do
     ("!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~", "ASCII printable characters")
   ]
 
+  IO.println "=== Testing HMAC-SHA-2 against OpenSSL ==="
+  let hmacResults ← ([.sha224, .sha256, .sha384, .sha512] : List Crypto.HMAC.Algorithm)
+    |>.mapM runHmacOracleTests
+
   -- Test MD5 algorithm against system md5sum
   IO.println "=== Testing MD5 algorithm against system md5sum ==="
   let md5Results ← parallelMapM (testCases.map (fun (input, description) => testMD5WithSystem input description))
@@ -989,6 +1055,7 @@ def runTests (args : List String := []) : IO Unit := do
     IO.println "   Run `lake exe conformance --long` to include NIST extremely long message tests"
 
   let allTestsPassed := md5Results.all (· == true) &&
+                        hmacResults.all (fun results => results.all (· == true)) &&
                         sha1Results.all (· == true) &&
                         sha3_224Results.all (· == true) &&
                         sha3_256Results.all (· == true) &&

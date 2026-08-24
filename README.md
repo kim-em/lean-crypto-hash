@@ -1,7 +1,7 @@
 # lean-crypto-hash
 
-A dependency-free, pure Lean 4 implementation of MD5, SHA-1, SHA-2, SHA-3, and SHAKE, with
-bounded-memory incremental hashing and command-line tools.
+A dependency-free, pure Lean 4 implementation of MD5, SHA-1, SHA-2, SHA-3, SHAKE, and
+HMAC-SHA-2, with bounded-memory incremental hashing and command-line tools.
 
 The code has broad automated conformance coverage, but has not received a security audit. MD5
 and SHA-1 are cryptographically broken and are included only for compatibility. New
@@ -13,6 +13,7 @@ security-sensitive applications should use SHA-256, SHA-512, SHA-3, or SHAKE as 
 - SHA-224, SHA-256, SHA-384, and SHA-512
 - SHA3-224, SHA3-256, SHA3-384, and SHA3-512
 - SHAKE128 and SHAKE256 with byte-sized variable output
+- HMAC-SHA224, HMAC-SHA256, HMAC-SHA384, and HMAC-SHA512
 
 ## Package boundary
 
@@ -26,6 +27,8 @@ The repository contains two Lake packages:
 `import Crypto` imports only the library. CLI support requires the explicit `import Crypto.CLI`,
 so the executables add no dependency or initialization cost for library users. CI enforces this
 boundary with [`check-root-boundary.sh`](validation/scripts/check-root-boundary.sh).
+Both packages use Lean's module system; downstream sources must also have a `module` declaration.
+Implementation imports remain private behind the sealed public contexts.
 
 ## Build and test
 
@@ -46,14 +49,15 @@ lake exe official-vectors
 lake test
 ```
 
-`official-vectors` runs 3,895 byte-oriented cases from vendored NIST CAVP response files.
-`lake test` also compares algorithms and CLI behavior with OpenSSL and a verified build of GNU
-coreutils 9.11. Provenance is recorded in
+`official-vectors` runs 5,170 byte-oriented cases from vendored NIST CAVP response files,
+including 1,275 HMAC-SHA-2 cases. `lake test` also compares hashes, HMAC, and CLI behavior with
+OpenSSL and a verified build of GNU coreutils 9.11. Provenance is recorded in
 [`validation/vectors/README.md`](validation/vectors/README.md).
 
 ## Library API
 
-The public API is byte-oriented and lives under `Crypto.Hash`. Fixed hashes and XOFs are separate
+The public API is byte-oriented. Hashes and XOFs live under `Crypto.Hash`, HMAC under
+`Crypto.HMAC`, and hexadecimal codecs under `Crypto.Hex`. Fixed hashes and XOFs are separate
 types, preventing an accidental fixed-size treatment of SHAKE.
 
 ```lean
@@ -67,18 +71,33 @@ def sha256Hex : String :=
 
 def shake : Crypto.ByteVector 64 :=
   Crypto.Hash.xof .shake256 64 "abc".toUTF8
+
+def hmac : Crypto.HMAC.Tag .sha256 :=
+  Crypto.HMAC.compute .sha256 "secret key".toUTF8 "message".toUTF8
+
+def decoded : Option (Crypto.ByteVector 3) :=
+  Crypto.ByteVector.ofHex? 3 "00a1ff"
 ```
 
 `Crypto.ByteVector n` is backed by `ByteArray` and carries a proof that its length is exactly
 `n`. Use `.toByteArray` for byte-oriented consumers and `.toHex` for lowercase hexadecimal.
 Fixed digests have type `Crypto.Hash.Digest algorithm`, an abbreviation whose size is the
-algorithm's output size.
+algorithm's output size. `Crypto.Hex.decode?` is strict: it accepts either letter case but rejects
+odd lengths, prefixes, whitespace, separators, and non-hexadecimal characters.
 
 Incremental fixed-output hashing is indexed by its algorithm:
 
 ```lean
 def digestChunks (chunks : List ByteArray) : Crypto.Hash.Digest .sha256 :=
   (chunks.foldl Crypto.Hash.Context.update (Crypto.Hash.Context.init .sha256)).finalize
+```
+
+HMAC has the same immutable incremental shape. Keys and messages are raw bytes, and tags carry
+their algorithm-dependent length in the type:
+
+```lean
+def hmacChunks (key : ByteArray) (chunks : List ByteArray) : Crypto.HMAC.Tag .sha512 :=
+  (chunks.foldl Crypto.HMAC.Context.update (Crypto.HMAC.Context.init .sha512 key)).finalize
 ```
 
 SHAKE finalization produces an immutable output reader. Reading returns both statically sized
@@ -103,9 +122,10 @@ the complete input or first materialize a list of blocks. Memory retained by a c
 constant in the total message size. SHAKE output is generated in one pass, with only the current
 Keccak state and requested output buffer retained.
 
-`Context.update_append`, `digestChunks_eq_digest_join`, the corresponding XOF theorems, and
-`XofReader.read_add` formally connect chunked operations to their one-shot forms. The downstream
-streaming benchmark can be run with resident-set reporting:
+`Context.update_append`, `digestChunks_eq_digest_join`, the corresponding HMAC and XOF theorems,
+and `XofReader.read_add` formally connect chunked operations to their one-shot forms. The
+downstream streaming benchmark exercises both hashing and HMAC and can be run with resident-set
+reporting:
 
 ```bash
 cd validation
@@ -151,9 +171,10 @@ CI checks:
 - dependency, FFI, native-source, toolchain, and library/CLI isolation;
 - warning-free root and downstream builds;
 - known-answer, incremental-equivalence, large-input, binary-I/O, and escaping tests;
-- vendored NIST SHA-1/SHA-2/SHA-3/SHAKE response files;
-- algorithm and CLI differential checks against OpenSSL and GNU coreutils;
-- machine-checked output-size, `ByteVector`, chunking, padding, endian, and SHAKE split-read laws.
+- vendored NIST SHA-1/SHA-2/SHA-3/SHAKE/HMAC response files;
+- algorithm, HMAC, and CLI differential checks against OpenSSL and GNU coreutils;
+- machine-checked output-size, hex, `ByteVector`, HMAC/chunking, padding, endian, and SHAKE
+  split-read laws.
 
 These are not a formal end-to-end proof of each compression function. The theorem inventory lives
 in [`validation/CryptoValidation/Proofs.lean`](validation/CryptoValidation/Proofs.lean), and the

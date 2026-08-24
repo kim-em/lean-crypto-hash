@@ -3,9 +3,18 @@ Copyright (c) 2025 Kim Morrison. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Kim Morrison
 -/
+module
 
-import Crypto
-import Std.Tactic.BVDecide
+
+public import Crypto
+public import Crypto.Lean.UInt
+public import Crypto.SHA1.Padding
+public import Crypto.SHA2.Padding
+public import Crypto.SHA3.Helpers
+public meta import Std.Tactic.BVDecide
+public import Std.Tactic.BVDecide.Bitblast.BVExpr.Basic
+
+public section
 
 /-!
 # Executable-interface refinement proofs
@@ -56,6 +65,40 @@ theorem byteVector_beq_exact {n : Nat} (left right : Crypto.ByteVector n) :
     (left == right) = true ↔ left = right :=
   Crypto.ByteVector.beq_eq_true_iff left right
 
+theorem hex_roundtrip (bytes : ByteArray) :
+    Crypto.Hex.decode? (Crypto.Hex.encode bytes) = some bytes :=
+  Crypto.Hex.decode_encode bytes
+
+theorem hex_length (bytes : ByteArray) :
+    (Crypto.Hex.encode bytes).length = bytes.size * 2 :=
+  Crypto.Hex.length_encode bytes
+
+theorem hex_lowercase (bytes : ByteArray) :
+    ∀ c ∈ (Crypto.Hex.encode bytes).toList, c.toLower = c :=
+  Crypto.Hex.encode_lower bytes
+
+theorem hex_alphabet (bytes : ByteArray) :
+    ∀ c ∈ (Crypto.Hex.encode bytes).toList, c ∈ Crypto.Hex.digits :=
+  Crypto.Hex.encode_mem_digits bytes
+
+theorem byteVector_hex_roundtrip {n : Nat} (bytes : Crypto.ByteVector n) :
+    Crypto.ByteVector.ofHex? n bytes.toHex = some bytes :=
+  Crypto.ByteVector.ofHex?_toHex bytes
+
+theorem hmac_tag_size (algorithm : Crypto.HMAC.Algorithm) (key message : ByteArray) :
+    (Crypto.HMAC.compute algorithm key message).toByteArray.size = algorithm.outputBytes :=
+  Crypto.HMAC.size_compute algorithm key message
+
+theorem hmac_hex_length (algorithm : Crypto.HMAC.Algorithm) (key message : ByteArray) :
+    (Crypto.HMAC.computeHex algorithm key message).length = algorithm.outputBytes * 2 :=
+  Crypto.HMAC.length_computeHex algorithm key message
+
+theorem hmac_chunking (algorithm : Crypto.HMAC.Algorithm) (key : ByteArray)
+    (chunks : List ByteArray) :
+    Crypto.HMAC.computeChunks algorithm key chunks =
+      Crypto.HMAC.compute algorithm key (Crypto.Hash.Context.joinChunks chunks) :=
+  Crypto.HMAC.computeChunks_eq_compute_join algorithm key chunks
+
 theorem sha1_padding_aligned (data : ByteArray) (originalLength : Nat) :
     (data.padSHA1WithLength originalLength).size % 64 = 0 :=
   ByteArray.padSHA1WithLength_aligned data originalLength
@@ -98,7 +141,7 @@ theorem uint32_bigEndian_roundtrip (word : UInt32) :
     UInt32.toBitVec_shiftRight, UInt32.toBitVec_toUInt8, UInt8.toBitVec_toUInt32]
   bv_decide
 
-private def uint32OfUInt8sLE (b0 b1 b2 b3 : UInt8) : UInt32 :=
+@[expose] def uint32OfUInt8sLE (b0 b1 b2 b3 : UInt8) : UInt32 :=
   b0.toUInt32 ||| (b1.toUInt32 <<< 8) ||| (b2.toUInt32 <<< 16) ||| (b3.toUInt32 <<< 24)
 
 theorem uint32_littleEndian_roundtrip (word : UInt32) :

@@ -3,11 +3,15 @@ Copyright (c) 2025 Kim Morrison. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Kim Morrison
 -/
+module
 
-import Crypto.SHA1.Constants
-import Crypto.SHA1.Primitives
-import Crypto.SHA1.Padding
-import Crypto.Hash.Streaming
+
+public import Crypto.SHA1.Constants
+public import Crypto.SHA1.Primitives
+public import Crypto.SHA1.Padding
+public import Crypto.Hash.Streaming
+
+public section
 
 /-! # SHA-1 Core Implementation
 
@@ -77,11 +81,11 @@ def compressBlock (H : Vector UInt32 5) (block : Vector UInt32 16) : Vector UInt
   #v[H[0] + a, H[1] + b, H[2] + c, H[3] + d, H[4] + e]
 
 /-- Incremental SHA-1 state, parameterized by its initial chaining value. -/
-@[ext] structure Context where
-  private state : Vector UInt32 5
-  private buffer : ByteArray
-  private buffer_lt : buffer.size < 64
-  private totalBytes : Nat
+@[ext] public structure Context where
+  state : Vector UInt32 5
+  buffer : ByteArray
+  buffer_lt : buffer.size < 64
+  totalBytes : Nat
 
 namespace Context
 
@@ -95,6 +99,10 @@ def update (ctx : Context) (input : ByteArray) : Context :=
     (fun state block => compressBlock state (bytesToBlock block))
     ctx.state ctx.buffer input ctx.buffer_lt
   ⟨result.state, result.buffer, result.buffer_lt, ctx.totalBytes + input.size⟩
+
+@[simp] theorem update_empty (ctx : Context) : ctx.update ByteArray.empty = ctx := by
+  cases ctx
+  simp [update]
 
 theorem update_append (ctx : Context) (left right : ByteArray) :
     (ctx.update left).update right = ctx.update (left ++ right) := by

@@ -3,10 +3,14 @@ Copyright (c) 2025 Kim Morrison. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Kim Morrison
 -/
+module
 
-import Crypto.SHA3.Helpers
-import Crypto.SHA3.Constants
-import Crypto.Hash.Streaming
+
+public import Crypto.SHA3.Helpers
+public import Crypto.SHA3.Constants
+public import Crypto.Hash.Streaming
+
+public section
 
 /-! # SHA-3/Keccak Core Implementation
 
@@ -19,23 +23,23 @@ This module implements the sponge construction and the main SHA-3 hash functions
 namespace Crypto.Hash.Internal.SHA3
 
 /-- Incremental Keccak absorption state. -/
-@[ext] structure Context where
-  private state : KeccakState
-  private buffer : ByteArray
-  private rateBytes : Nat
-  private rateBytes_pos : 0 < rateBytes
-  private rateBytes_le : rateBytes ≤ 200
-  private buffer_lt : buffer.size < rateBytes
-  private suffix : UInt8
+@[ext] public structure Context where
+  state : KeccakState
+  buffer : ByteArray
+  rateBytes : Nat
+  rateBytes_pos : 0 < rateBytes
+  rateBytes_le : rateBytes ≤ 200
+  buffer_lt : buffer.size < rateBytes
+  suffix : UInt8
 
 /-- A reusable SHAKE output cursor. Repeated reads continue the same squeeze stream. -/
-structure SqueezeReader where
-  private state : KeccakState
-  private rateBytes : Nat
-  private rateBytes_pos : 0 < rateBytes
-  private rateBytes_le : rateBytes ≤ 200
-  private offset : Nat
-  private offset_le : offset ≤ rateBytes
+public structure SqueezeReader where
+  state : KeccakState
+  rateBytes : Nat
+  rateBytes_pos : 0 < rateBytes
+  rateBytes_le : rateBytes ≤ 200
+  offset : Nat
+  offset_le : offset ≤ rateBytes
 
 namespace Context
 
@@ -59,6 +63,10 @@ def update (ctx : Context) (input : ByteArray) : Context := Id.run do
     ctx.state ctx.buffer input ctx.buffer_lt
   return ⟨result.state, result.buffer, ctx.rateBytes, ctx.rateBytes_pos, ctx.rateBytes_le,
     result.buffer_lt, ctx.suffix⟩
+
+@[simp] theorem update_empty (ctx : Context) : ctx.update ByteArray.empty = ctx := by
+  cases ctx
+  simp [update]
 
 theorem update_append (ctx : Context) (left right : ByteArray) :
     (ctx.update left).update right = ctx.update (left ++ right) := by
@@ -122,7 +130,7 @@ private def readStep (_ : Unit) : StateM SqueezeReader UInt8 := do
   set next
   return byte
 
-private def readAction (outputBytes : Nat) : StateM SqueezeReader (Vector UInt8 outputBytes) :=
+def readAction (outputBytes : Nat) : StateM SqueezeReader (Vector UInt8 outputBytes) :=
   (Vector.replicate outputBytes ()).mapM readStep
 
 private theorem runMapM_append {firstBytes secondBytes : Nat} (reader : SqueezeReader)
@@ -134,7 +142,7 @@ private theorem runMapM_append {firstBytes secondBytes : Nat} (reader : SqueezeR
   rfl
 
 /-- Read the next `outputBytes` bytes and return the advanced output cursor. -/
-def read (reader : SqueezeReader) (outputBytes : Nat) :
+@[expose] def read (reader : SqueezeReader) (outputBytes : Nat) :
     Crypto.ByteVector outputBytes × SqueezeReader :=
   let (bytes, next) := readAction outputBytes reader
   (Crypto.ByteVector.ofVector bytes, next)

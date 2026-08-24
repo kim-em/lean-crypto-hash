@@ -1,4 +1,5 @@
 name = "crypto-validation"
+requiresModuleSystem = true
 leanOptions = { autoImplicit = false, relaxedAutoImplicit = false, warningAsError = true }
 defaultTargets = ["CryptoValidation", "conformance", "official-vectors", "representation-benchmark", "streaming-benchmark"]
 testRunner = "conformance"

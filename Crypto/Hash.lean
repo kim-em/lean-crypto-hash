@@ -3,19 +3,23 @@ Copyright (c) 2025 Kim Morrison. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Kim Morrison
 -/
+module
 
-import Crypto.ByteVector
+
+public import Crypto.ByteVector
 import Crypto.MD5
 import Crypto.SHA1.Core
 import Crypto.SHA2.Core
 import Crypto.SHA3.Core
+
+public section
 
 /-! # Typed cryptographic hash interface -/
 
 namespace Crypto.Hash
 
 /-- Fixed-output hash algorithms supported by the library. -/
-inductive Algorithm where
+public inductive Algorithm where
   | md5 | sha1 | sha224 | sha256 | sha384 | sha512
   | sha3_224 | sha3_256 | sha3_384 | sha3_512
   deriving BEq, Repr
@@ -61,7 +65,7 @@ private inductive ContextRepresentation : Algorithm → Type where
 
 /-- An incremental computation indexed by its fixed-output algorithm.
 Its representation is sealed so the type index cannot disagree with the algorithm parameters. -/
-structure Context (algorithm : Algorithm) where
+public structure Context (algorithm : Algorithm) where
   private mk ::
   private representation : ContextRepresentation algorithm
 
@@ -102,7 +106,7 @@ def update (context : Context algorithm) (input : ByteArray) : Context algorithm
 @[simp] theorem update_empty (context : Context algorithm) :
     context.update ByteArray.empty = context := by
   rcases context with ⟨representation⟩
-  cases representation <;> rfl
+  cases representation <;> simp [update]
 
 theorem update_append (context : Context algorithm) (left right : ByteArray) :
     (context.update left).update right = context.update (left ++ right) := by
@@ -123,7 +127,7 @@ def updateChunks (context : Context algorithm) : List ByteArray → Context algo
   | [] => context
   | chunk :: chunks => updateChunks (context.update chunk) chunks
 
-def joinChunks : List ByteArray → ByteArray
+@[expose] def joinChunks : List ByteArray → ByteArray
   | [] => ByteArray.empty
   | chunk :: chunks => chunk ++ joinChunks chunks
 
@@ -155,7 +159,7 @@ end Context
 def digest (algorithm : Algorithm) (input : ByteArray) : Digest algorithm :=
   (Context.init algorithm |>.update input).finalize
 
-def digestHex (algorithm : Algorithm) (input : ByteArray) : String :=
+@[expose] def digestHex (algorithm : Algorithm) (input : ByteArray) : String :=
   (digest algorithm input).toHex
 
 def digestChunks (algorithm : Algorithm) (chunks : List ByteArray) : Digest algorithm :=
@@ -167,7 +171,7 @@ theorem digestChunks_eq_digest_join (algorithm : Algorithm) (chunks : List ByteA
   rw [Context.updateChunks_eq_update_join]
 
 /-- Extendable-output algorithms supported by the library. -/
-inductive XofAlgorithm where
+public inductive XofAlgorithm where
   | shake128 | shake256
   deriving BEq, Repr
 
@@ -188,12 +192,12 @@ private inductive XofContextRepresentation : XofAlgorithm → Type where
 
 /-- Incremental SHAKE absorption indexed by the selected XOF.
 Its representation is sealed so the type index cannot disagree with the rate parameters. -/
-structure XofContext (algorithm : XofAlgorithm) where
+public structure XofContext (algorithm : XofAlgorithm) where
   private mk ::
   private representation : XofContextRepresentation algorithm
 
 /-- Reusable SHAKE output cursor indexed by the selected XOF. -/
-structure XofReader (_algorithm : XofAlgorithm) where
+public structure XofReader (_algorithm : XofAlgorithm) where
   private reader : Crypto.Hash.Internal.SHA3.SqueezeReader
 
 namespace XofContext
@@ -215,7 +219,7 @@ def update (context : XofContext algorithm) (input : ByteArray) : XofContext alg
 @[simp] theorem update_empty (context : XofContext algorithm) :
     context.update ByteArray.empty = context := by
   rcases context with ⟨representation⟩
-  cases representation <;> rfl
+  cases representation <;> simp [update]
 
 theorem update_append (context : XofContext algorithm) (left right : ByteArray) :
     (context.update left).update right = context.update (left ++ right) := by
@@ -257,18 +261,12 @@ theorem read_add (reader : XofReader algorithm) (firstBytes secondBytes : Nat) :
     let first := reader.read firstBytes
     let second := first.2.read secondBytes
     (first.1.append second.1, second.2) = reader.read (firstBytes + secondBytes) := by
-  cases reader with
-  | mk reader =>
-    have h := reader.read_add firstBytes secondBytes
-    change ((reader.read firstBytes).1.append
-      (((reader.read firstBytes).2.read secondBytes).1),
-      @XofReader.mk algorithm ((reader.read firstBytes).2.read secondBytes).2) =
-      ((reader.read (firstBytes + secondBytes)).1,
-        @XofReader.mk algorithm (reader.read (firstBytes + secondBytes)).2)
-    have hbytes := congrArg Prod.fst h
-    have hreader := congrArg Prod.snd h
-    exact Prod.ext hbytes
-      (congrArg (fun next => @XofReader.mk algorithm next) hreader)
+  have h := reader.reader.read_add firstBytes secondBytes
+  unfold read
+  have hbytes := congrArg Prod.fst h
+  have hreader := congrArg Prod.snd h
+  exact Prod.ext hbytes (congrArg
+    (fun next => ({ reader := next } : XofReader algorithm)) hreader)
 
 end XofReader
 
@@ -276,7 +274,7 @@ def xof (algorithm : XofAlgorithm) (outputBytes : Nat) (input : ByteArray) :
     Crypto.ByteVector outputBytes :=
   (XofContext.init algorithm |>.update input |>.finalize |>.read outputBytes).1
 
-def xofHex (algorithm : XofAlgorithm) (outputBytes : Nat) (input : ByteArray) : String :=
+@[expose] def xofHex (algorithm : XofAlgorithm) (outputBytes : Nat) (input : ByteArray) : String :=
   (xof algorithm outputBytes input).toHex
 
 def xofChunks (algorithm : XofAlgorithm) (outputBytes : Nat)
