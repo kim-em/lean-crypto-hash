@@ -17,42 +17,82 @@ This module implements the sponge construction and the main SHA-3 hash functions
 
 namespace CryptoHash.SHA3
 
--- Generic sponge function
-def sponge (input : ByteArray) (params : SHA3Params) (suffix : UInt8) (outputLength : Nat) : ByteArray := Id.run do
-  let rateBytes := params.rate / 8
+/-- Incremental Keccak absorption state. -/
+structure Context where
+  private state : KeccakState
+  private buffer : ByteArray
+  private rateBytes : Nat
+  private suffix : UInt8
 
-  -- Pad the input
-  let paddedInput := ByteArray.padKeccak input rateBytes suffix
+/-- A reusable SHAKE output cursor. Repeated reads continue the same squeeze stream. -/
+structure SqueezeReader where
+  private state : KeccakState
+  private rateBytes : Nat
+  private offset : Nat
 
-  -- Initialize state
-  let mut state := emptyState
+namespace Context
 
-  -- Absorbing phase: process input blocks
+/-- Start an incremental SHA-3 or SHAKE computation. -/
+def init (params : SHA3Params) (suffix : UInt8) : Context :=
+  ⟨emptyState, ByteArray.empty, min 200 (max 1 (params.rate / 8)), suffix⟩
+
+/-- Absorb another chunk without retaining already-permuted rate blocks. -/
+def update (ctx : Context) (input : ByteArray) : Context := Id.run do
+  let combined := ctx.buffer ++ input
+  let completeBytes := combined.size / ctx.rateBytes * ctx.rateBytes
+  let mut state := ctx.state
   let mut offset := 0
-  while offset < paddedInput.size do
-    let blockSize := min rateBytes (paddedInput.size - offset)
-    let mut block : ByteArray := ByteArray.empty
+  while offset < completeBytes do
+    let block := combined.extract offset (offset + ctx.rateBytes)
+    state := keccakF1600 (state.absorb block ctx.rateBytes)
+    offset := offset + ctx.rateBytes
+  return ⟨state, combined.extract completeBytes combined.size, ctx.rateBytes, ctx.suffix⟩
 
-    for i in [0:blockSize] do
-      if h : offset + i < paddedInput.size then
-        block := block.push paddedInput[offset + i]
+/-- End absorption and begin squeezing. The context remains reusable because it is immutable. -/
+def finalize (ctx : Context) : SqueezeReader := Id.run do
+  let padded := ByteArray.padKeccak ctx.buffer ctx.rateBytes ctx.suffix
+  let mut state := ctx.state
+  let mut offset := 0
+  while offset < padded.size do
+    let block := padded.extract offset (offset + ctx.rateBytes)
+    state := keccakF1600 (state.absorb block ctx.rateBytes)
+    offset := offset + ctx.rateBytes
+  return ⟨state, ctx.rateBytes, 0⟩
 
-    -- XOR block into state and apply permutation
-    state := state.absorb block rateBytes
-    state := keccakF1600 state
+end Context
 
-    offset := offset + rateBytes
+namespace SqueezeReader
 
-  -- Squeezing phase: extract output
-  state.squeeze rateBytes (outputLength / 8)
+/-- Read the next `outputBytes` bytes and return the advanced output cursor. -/
+def read (reader : SqueezeReader) (outputBytes : Nat) : ByteArray × SqueezeReader := Id.run do
+  let mut result := ByteArray.empty
+  let mut state := reader.state
+  let mut offset := reader.offset
+  while result.size < outputBytes do
+    if offset == reader.rateBytes then
+      state := keccakF1600 state
+      offset := 0
+    let available := reader.rateBytes - offset
+    let take := min available (outputBytes - result.size)
+    let stateBytes := state.toByteArray
+    result := result ++ stateBytes.extract offset (offset + take)
+    offset := offset + take
+  return (result, ⟨state, reader.rateBytes, offset⟩)
+
+end SqueezeReader
+
+-- Generic sponge function
+def sponge (input : ByteArray) (params : SHA3Params) (suffix : UInt8) (outputBytes : Nat) : ByteArray :=
+  let reader := (Context.init params suffix |>.update input).finalize
+  (reader.read outputBytes).1
 
 -- SHA-3 hash function implementation
 def sha3Hash (input : ByteArray) (params : SHA3Params) : ByteArray :=
-  sponge input params sha3_suffix params.outputLength
+  sponge input params sha3_suffix (params.outputLength / 8)
 
 -- SHAKE extendable output function implementation
-def shakeHash (input : ByteArray) (params : SHA3Params) (outputLength : Nat) : ByteArray :=
-  sponge input params shake_suffix outputLength
+def shakeHash (input : ByteArray) (params : SHA3Params) (outputBytes : Nat) : ByteArray :=
+  sponge input params shake_suffix outputBytes
 
 end CryptoHash.SHA3
 

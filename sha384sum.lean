@@ -11,5 +11,5 @@ import Crypto.SHA2
 
 open Crypto.CLI
 
-def main (args : List String) : IO Unit :=
-  runHashSum HashAlgorithm.sha384 args
+def main (args : List String) : IO UInt32 :=
+  runHashSumMain HashAlgorithm.sha384 args

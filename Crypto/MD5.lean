@@ -29,11 +29,10 @@ private def auxG (b c d : UInt32) : UInt32 := (b &&& d) ||| (c &&& ~~~d)
 private def auxH (b c d : UInt32) : UInt32 := b ^^^ c ^^^ d
 private def auxI (b c d : UInt32) : UInt32 := c ^^^ (b ||| ~~~d)
 
-private def padMessage (msg : ByteArray) : ByteArray :=
-  let msgLen := msg.size
-  let msgLenBits := msgLen * 8
+private def padMessageWithLength (msg : ByteArray) (totalBytes : Nat) : ByteArray :=
+  let msgLenBits := totalBytes * 8
   let paddedMsg := msg.push 0x80
-  let targetLen := ((msgLen + 9 + 63) / 64) * 64 - 8
+  let targetLen := ((msg.size + 9 + 63) / 64) * 64 - 8
   let zeroPadLen := targetLen - paddedMsg.size
   let withZeros := paddedMsg ++ ByteArray.mk (Array.replicate zeroPadLen 0)
   let lenBytes := ByteArray.mk (Array.ofFn (fun i : Fin 8 => ((msgLenBits >>> (i.val * 8)) &&& 0xFF).toUInt8))
@@ -68,8 +67,33 @@ private def doRound (block : Vector UInt32 16) (state : MD5State) (round : Fin 4
 private def processBlock (state : MD5State) (block : Vector UInt32 16) : MD5State :=
   state + Fin.foldl 4 (doRound block) state
 
+/-- Incremental MD5 state. The buffered suffix is always shorter than one block. -/
+structure Context where
+  private state : MD5State
+  private buffer : ByteArray
+  private totalBytes : Nat
+
+namespace Context
+
+/-- An empty incremental MD5 computation. -/
+def init : Context := ⟨initialState, ByteArray.empty, 0⟩
+
+/-- Absorb another chunk without retaining already-compressed blocks. -/
+def update (ctx : Context) (input : ByteArray) : Context :=
+  let combined := ctx.buffer ++ input
+  let completeBytes := combined.size / 64 * 64
+  let blocks := messageToBlocks (combined.extract 0 completeBytes)
+  let state := blocks.foldl processBlock ctx.state
+  ⟨state, combined.extract completeBytes combined.size, ctx.totalBytes + input.size⟩
+
+/-- Finish an incremental MD5 computation. -/
+def finalize (ctx : Context) : MD5State :=
+  (messageToBlocks (padMessageWithLength ctx.buffer ctx.totalBytes)).foldl processBlock ctx.state
+
+end Context
+
 def md5Hash (message : ByteArray) : MD5State :=
-  (messageToBlocks (padMessage message)).foldl processBlock initialState
+  (Context.init.update message).finalize
 
 def _root_.UInt32.toHex (w : UInt32) : String :=
   let bytes := Array.ofFn (fun i : Fin 4 => (w >>> (i.val * 8).toUInt32).toUInt8)
@@ -80,6 +104,15 @@ def _root_.UInt32.toHex (w : UInt32) : String :=
 
 def MD5State.toHex (state : MD5State) : String :=
   state[0].toHex ++ state[1].toHex ++ state[2].toHex ++ state[3].toHex
+
+/-- The MD5 digest bytes in the standard display order. -/
+def MD5State.toByteArray (state : MD5State) : ByteArray := Id.run do
+  let mut result := ByteArray.emptyWithCapacity 16
+  for h : i in [0:4] do
+    let word := state[i]
+    for j in [0:4] do
+      result := result.push (word >>> (j * 8).toUInt32).toUInt8
+  return result
 
 private def UInt32.reverseBytes (w : UInt32) : UInt32 :=
   let b0 := (w >>> 0) &&& 0xFF
@@ -108,9 +141,3 @@ def ByteArray.md5 (data : ByteArray) : BitVec 128 :=
 -/
 def String.md5 (s : String) : String :=
   (MD5.md5Hash s.toUTF8).toHex
-
--- We should prove the easy theorem (it's just about permuting bytes) that:
--- theorem String.md5_eq_toHex_md5_toUTF8 (s : String) :
---     s.md5 = s.toUTF8.md5.toHex := sorry
-
-example : "abc".md5 = "abc".toUTF8.md5.toHex := by native_decide

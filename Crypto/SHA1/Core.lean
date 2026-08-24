@@ -69,21 +69,36 @@ def compressBlock (H : Vector UInt32 5) (block : Vector UInt32 16) : Vector UInt
   -- Add the compressed chunk to the current hash value
   #v[H[0] + a, H[1] + b, H[2] + c, H[3] + d, H[4] + e]
 
+/-- Incremental SHA-1 state, parameterized by its initial chaining value. -/
+structure Context where
+  private state : Vector UInt32 5
+  private buffer : ByteArray
+  private totalBytes : Nat
+
+namespace Context
+
+/-- Start an incremental SHA-1 computation. -/
+def init (initialHash : Vector UInt32 5) : Context :=
+  ⟨initialHash, ByteArray.empty, 0⟩
+
+/-- Absorb another chunk without retaining already-compressed blocks. -/
+def update (ctx : Context) (input : ByteArray) : Context :=
+  let combined := ctx.buffer ++ input
+  let completeBytes := combined.size / 64 * 64
+  let blocks := (combined.extract 0 completeBytes).toBlocksSHA1
+  let state := blocks.foldl compressBlock ctx.state
+  ⟨state, combined.extract completeBytes combined.size, ctx.totalBytes + input.size⟩
+
+/-- Finish an incremental SHA-1 computation. -/
+def finalize (ctx : Context) : Vector UInt32 5 :=
+  (ctx.buffer.padSHA1WithLength ctx.totalBytes).toBlocksSHA1.foldl compressBlock ctx.state
+
+end Context
+
 /-- SHA-1 hash computation.
 Internal implementation function. -/
 def hashWith (data : ByteArray) (initialHash : Vector UInt32 5) : Vector UInt32 5 := Id.run do
-  -- Step 1: Pad the message
-  let paddedData := data.padSHA1
-
-  -- Step 2: Split into 512-bit blocks
-  let blocks := paddedData.toBlocksSHA1
-
-  -- Step 3: Process each block with compression function
-  let mut hash := initialHash
-  for block in blocks do
-    hash := compressBlock hash block
-
-  hash
+  (Context.init initialHash |>.update data).finalize
 
 end SHA1
 

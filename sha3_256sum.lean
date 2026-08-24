@@ -19,5 +19,5 @@ SHA-3 is cryptographically secure and suitable for all applications requiring
 strong hash functions. SHA3-256 provides 256-bit output with high security.
 -/
 
-def main (args : List String) : IO Unit :=
-  runHashSum HashAlgorithm.sha3_256 args
+def main (args : List String) : IO UInt32 :=
+  runHashSumMain HashAlgorithm.sha3_256 args

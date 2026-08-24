@@ -12,3 +12,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: leanprover/lean-action@v1
+        with:
+          build: true
+          test: true
+          build-args: "--wfail"
+          use-mathlib-cache: false
+      - name: Enforce dependency-free root boundary
+        run: validation/scripts/check-root-boundary.sh
+      - name: Build pinned GNU coreutils 9.11 oracle
+        run: validation/scripts/install-coreutils-9.11.sh "$RUNNER_TEMP/coreutils-9.11"
+      - name: Downstream official-vector and oracle conformance
+        run: |
+          export PATH="$RUNNER_TEMP/coreutils-9.11/bin:$PATH"
+          md5sum --version | head -1
+          cd validation
+          lake build --wfail
+          lake test
+      - name: Exact CLI differential checks
+        run: |
+          export PATH="$RUNNER_TEMP/coreutils-9.11/bin:$PATH"
+          validation/scripts/cli-conformance.sh

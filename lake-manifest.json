@@ -1,5 +1,6 @@
-{"version": "1.1.0",
+{"version": "1.2.0",
  "packagesDir": ".lake/packages",
  "packages": [],
- "name": "«lean-md5»",
- "lakeDir": ".lake"}
+ "name": "«lean-crypto-hash»",
+ "lakeDir": ".lake",
+ "fixedToolchain": false}

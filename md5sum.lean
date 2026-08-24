@@ -10,5 +10,5 @@ import Crypto.CLI
 
 open Crypto.CLI
 
-def main (args : List String) : IO Unit :=
-  runHashSum HashAlgorithm.md5 args
+def main (args : List String) : IO UInt32 :=
+  runHashSumMain HashAlgorithm.md5 args

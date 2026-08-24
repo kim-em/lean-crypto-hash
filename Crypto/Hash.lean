@@ -11,14 +11,12 @@ import Crypto.SHA3
 
 /-! # Unified Hash Algorithm Interface
 
-This module provides a unified interface for all supported cryptographic hash algorithms.
-Currently supports MD5 and the SHA-2 family (SHA-224, SHA-256, SHA-512).
+This module provides one-shot and incremental interfaces for every supported algorithm.
 -/
 
 /-- Hash algorithm variants supported by the cryptographic library.
 
-This inductive type represents all supported hash algorithms, providing a unified
-interface for MD5 and the SHA-2 family of hash functions. -/
+This inductive type includes fixed-output hashes and byte-length-indexed SHAKE variants. -/
 inductive HashAlgorithm where
   | md5 : HashAlgorithm
   | sha1 : HashAlgorithm
@@ -35,6 +33,22 @@ inductive HashAlgorithm where
 
 namespace HashAlgorithm
 
+/-- Get the output size in bytes for each hash algorithm. -/
+def outputBytes (algo : HashAlgorithm) : Nat :=
+  match algo with
+  | md5 => 16
+  | sha1 => 20
+  | sha224 => 28
+  | sha256 => 32
+  | sha384 => 48
+  | sha512 => 64
+  | sha3_224 => 28
+  | sha3_256 => 32
+  | sha3_384 => 48
+  | sha3_512 => 64
+  | shake128 n => n
+  | shake256 n => n
+
 /-- Get the output bit size for each hash algorithm.
 
 Returns the number of bits in the hash output for the given algorithm:
@@ -43,20 +57,7 @@ Returns the number of bits in the hash output for the given algorithm:
 - SHA-256: 256 bits
 - SHA-384: 384 bits
 - SHA-512: 512 bits -/
-def bitSize (algo : HashAlgorithm) : Nat :=
-  match algo with
-  | md5 => 128
-  | sha1 => 160
-  | sha224 => 224
-  | sha256 => 256
-  | sha384 => 384
-  | sha512 => 512
-  | sha3_224 => 224
-  | sha3_256 => 256
-  | sha3_384 => 384
-  | sha3_512 => 512
-  | shake128 n => n * 8
-  | shake256 n => n * 8
+def bitSize (algo : HashAlgorithm) : Nat := algo.outputBytes * 8
 
 /-- Get the standard algorithm name for display purposes.
 
@@ -106,6 +107,102 @@ def tool (algo : HashAlgorithm) : String :=
 
 end HashAlgorithm
 
+/-- A byte array whose length is carried by its type. -/
+structure ByteVector (size : Nat) where
+  bytes : ByteArray
+  size_eq : bytes.size = size
+
+namespace ByteVector
+
+/-- Convert type-sized bits to their standard big-endian bytes. -/
+def ofBitVec {n : Nat} (bits : BitVec (n * 8)) : ByteVector n :=
+  let bytes := ByteArray.mk <| Array.ofFn fun i : Fin n =>
+    ((bits.toNat >>> (8 * (n - 1 - i.val))) &&& 0xff).toUInt8
+  { bytes := bytes
+    size_eq := by
+      change (Array.ofFn _).size = n
+      exact Array.size_ofFn }
+
+end ByteVector
+
+/-- The statically sized byte representation of a hash algorithm's output. -/
+abbrev HashDigest (algo : HashAlgorithm) := ByteVector algo.outputBytes
+
+/-- A dynamically selected incremental hash computation. -/
+inductive HashContext where
+  | md5 (ctx : CryptoHash.MD5.Context)
+  | sha1 (ctx : CryptoHash.SHA1.Context)
+  | sha224 (ctx : CryptoHash.SHA256.Context)
+  | sha256 (ctx : CryptoHash.SHA256.Context)
+  | sha384 (ctx : CryptoHash.SHA512.Context)
+  | sha512 (ctx : CryptoHash.SHA512.Context)
+  | sha3_224 (ctx : CryptoHash.SHA3.Context)
+  | sha3_256 (ctx : CryptoHash.SHA3.Context)
+  | sha3_384 (ctx : CryptoHash.SHA3.Context)
+  | sha3_512 (ctx : CryptoHash.SHA3.Context)
+  | shake128 (outputBytes : Nat) (ctx : CryptoHash.SHA3.Context)
+  | shake256 (outputBytes : Nat) (ctx : CryptoHash.SHA3.Context)
+
+namespace HashAlgorithm
+
+/-- Start an incremental computation for a dynamically selected algorithm. -/
+def newContext (algo : HashAlgorithm) : HashContext :=
+  match algo with
+  | .md5 => .md5 CryptoHash.MD5.Context.init
+  | .sha1 => .sha1 (CryptoHash.SHA1.Context.init CryptoHash.SHA1.H0)
+  | .sha224 => .sha224 (CryptoHash.SHA256.Context.init CryptoHash.SHA224.H0)
+  | .sha256 => .sha256 (CryptoHash.SHA256.Context.init CryptoHash.SHA256.H0)
+  | .sha384 => .sha384 (CryptoHash.SHA512.Context.init CryptoHash.SHA384.H0)
+  | .sha512 => .sha512 (CryptoHash.SHA512.Context.init CryptoHash.SHA512.H0)
+  | .sha3_224 => .sha3_224 (CryptoHash.SHA3.Context.init CryptoHash.SHA3.sha3_224_params CryptoHash.SHA3.sha3_suffix)
+  | .sha3_256 => .sha3_256 (CryptoHash.SHA3.Context.init CryptoHash.SHA3.sha3_256_params CryptoHash.SHA3.sha3_suffix)
+  | .sha3_384 => .sha3_384 (CryptoHash.SHA3.Context.init CryptoHash.SHA3.sha3_384_params CryptoHash.SHA3.sha3_suffix)
+  | .sha3_512 => .sha3_512 (CryptoHash.SHA3.Context.init CryptoHash.SHA3.sha3_512_params CryptoHash.SHA3.sha3_suffix)
+  | .shake128 n => .shake128 n (CryptoHash.SHA3.Context.init CryptoHash.SHA3.shake128_params CryptoHash.SHA3.shake_suffix)
+  | .shake256 n => .shake256 n (CryptoHash.SHA3.Context.init CryptoHash.SHA3.shake256_params CryptoHash.SHA3.shake_suffix)
+
+end HashAlgorithm
+
+namespace HashContext
+
+/-- Absorb one chunk into a dynamically selected computation. -/
+def update (ctx : HashContext) (input : ByteArray) : HashContext :=
+  match ctx with
+  | .md5 c => .md5 (c.update input)
+  | .sha1 c => .sha1 (c.update input)
+  | .sha224 c => .sha224 (c.update input)
+  | .sha256 c => .sha256 (c.update input)
+  | .sha384 c => .sha384 (c.update input)
+  | .sha512 c => .sha512 (c.update input)
+  | .sha3_224 c => .sha3_224 (c.update input)
+  | .sha3_256 c => .sha3_256 (c.update input)
+  | .sha3_384 c => .sha3_384 (c.update input)
+  | .sha3_512 c => .sha3_512 (c.update input)
+  | .shake128 n c => .shake128 n (c.update input)
+  | .shake256 n c => .shake256 n (c.update input)
+
+/-- Finish a dynamically selected computation as raw digest bytes. -/
+def finalize (ctx : HashContext) : ByteArray :=
+  match ctx with
+  | .md5 c => c.finalize.toByteArray
+  | .sha1 c => c.finalize.toArray.toByteArrayBE
+  | .sha224 c => c.finalize.take 7 |>.toArray.toByteArrayBE
+  | .sha256 c => c.finalize.toArray.toByteArrayBE
+  | .sha384 c => c.finalize.take 6 |>.toArray.toByteArrayBE64
+  | .sha512 c => c.finalize.toArray.toByteArrayBE64
+  | .sha3_224 c => (c.finalize.read 28).1
+  | .sha3_256 c => (c.finalize.read 32).1
+  | .sha3_384 c => (c.finalize.read 48).1
+  | .sha3_512 c => (c.finalize.read 64).1
+  | .shake128 n c => (c.finalize.read n).1
+  | .shake256 n c => (c.finalize.read n).1
+
+/-- Finish a dynamically selected computation as lowercase hexadecimal. -/
+def finalizeHex (ctx : HashContext) : String :=
+  ctx.finalize.toHexString
+
+end HashContext
+
 /-- Unified hash function for strings.
 
 Computes the hash of a string using the specified algorithm and returns
@@ -118,19 +215,7 @@ Example:
 -- Returns: "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
 ``` -/
 def String.hashWith (algo : HashAlgorithm) (s : String) : String :=
-  match algo with
-  | HashAlgorithm.md5 => s.md5
-  | HashAlgorithm.sha1 => s.sha1
-  | HashAlgorithm.sha224 => s.sha224
-  | HashAlgorithm.sha256 => s.sha256
-  | HashAlgorithm.sha384 => s.sha384
-  | HashAlgorithm.sha512 => s.sha512
-  | HashAlgorithm.sha3_224 => s.sha3_224
-  | HashAlgorithm.sha3_256 => s.sha3_256
-  | HashAlgorithm.sha3_384 => s.sha3_384
-  | HashAlgorithm.sha3_512 => s.sha3_512
-  | HashAlgorithm.shake128 n => s.shake128 n
-  | HashAlgorithm.shake256 n => s.shake256 n
+  (algo.newContext.update s.toUTF8).finalizeHex
 
 /-- Unified hash function for ByteArray returning appropriately sized BitVec.
 
@@ -147,8 +232,9 @@ Example:
 def ByteArray.toBitVec (data : ByteArray) (width : Nat) : BitVec width := Id.run do
   let mut result : BitVec width := 0
   for i in [0:min data.size (width / 8)] do
-    let byte := data[i]!.toNat
-    result := result ||| (BitVec.ofNat width (byte.shiftLeft (8 * (width / 8 - 1 - i))))
+    if h : i < data.size then
+      let byte := data[i].toNat
+      result := result ||| (BitVec.ofNat width (byte.shiftLeft (8 * (width / 8 - 1 - i))))
   return result
 
 -- Note: SHA-3 and SHAKE functions return ByteArray, others return BitVec
@@ -167,29 +253,9 @@ def ByteArray.hashWith (algo : HashAlgorithm) (data : ByteArray) : BitVec algo.b
   | HashAlgorithm.shake128 n => (data.shake128 n).toBitVec (n * 8)
   | HashAlgorithm.shake256 n => (data.shake256 n).toBitVec (n * 8)
 
+/-- Hash bytes to a ByteArray-backed digest with a static output-size theorem. -/
+def ByteArray.hashWithDigest (algo : HashAlgorithm) (data : ByteArray) : HashDigest algo :=
+  ByteVector.ofBitVec (data.hashWith algo)
+
 def ByteArray.hashWithHex (algo : HashAlgorithm) (data : ByteArray) : String :=
-  match algo with
-  | .md5 => data.md5.toHex
-  | .sha1 => data.sha1.toHex
-  | .sha224 =>
-    let hashWords := (CryptoHash.SHA256.hashWith data CryptoHash.SHA224.H0).take 7
-    let hashBytes := hashWords.toArray.toByteArrayBE
-    hashBytes.toHexString
-  | .sha256 =>
-    let hashWords := CryptoHash.SHA256.hashWith data CryptoHash.SHA256.H0
-    let hashBytes := hashWords.toArray.toByteArrayBE
-    hashBytes.toHexString
-  | .sha384 =>
-    let hashArray := (CryptoHash.SHA512.hashWith data CryptoHash.SHA384.H0).take 6
-    let hashBytes := hashArray.toArray.toByteArrayBE64
-    hashBytes.toHexString
-  | .sha512 =>
-    let hashWords := CryptoHash.SHA512.hashWith data CryptoHash.SHA512.H0
-    let hashBytes := hashWords.toArray.toByteArrayBE64
-    hashBytes.toHexString
-  | .sha3_224 => data.sha3_224.toHexString
-  | .sha3_256 => data.sha3_256.toHexString
-  | .sha3_384 => data.sha3_384.toHexString
-  | .sha3_512 => data.sha3_512.toHexString
-  | .shake128 n => (data.shake128 n).toHexString
-  | .shake256 n => (data.shake256 n).toHexString
+  (algo.newContext.update data).finalizeHex

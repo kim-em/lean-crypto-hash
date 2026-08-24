@@ -12,9 +12,8 @@ implementing the preprocessing step as specified in FIPS 180-1.
 
 /-- Message preprocessing for SHA-1 (pad to 512-bit blocks).
 Internal padding function that adds the required padding and length encoding. -/
-def ByteArray.padSHA1 (data : ByteArray) : ByteArray := Id.run do
+def ByteArray.padSHA1WithLength (data : ByteArray) (originalLength : Nat) : ByteArray := Id.run do
   let mut result := data
-  let originalLength := data.size
 
   -- Append the '1' bit (0x80 byte)
   result := result.push 0x80
@@ -42,3 +41,7 @@ def ByteArray.padSHA1 (data : ByteArray) : ByteArray := Id.run do
   result := result.push low32.toUInt8
 
   result
+
+/-- Pad a complete SHA-1 input. -/
+def ByteArray.padSHA1 (data : ByteArray) : ByteArray :=
+  data.padSHA1WithLength data.size

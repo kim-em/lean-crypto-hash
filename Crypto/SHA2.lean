@@ -10,7 +10,7 @@ import Crypto.SHA2.Helpers
 /-! # SHA-2 Hash Functions Implementation
 
 This module implements the SHA-2 family of cryptographic hash functions following FIPS PUB 180-4.
-Currently includes SHA-256 with plans for SHA-224, SHA-384, SHA-512, SHA-512/224, and SHA-512/256.
+It includes SHA-224, SHA-256, SHA-384, and SHA-512.
 -/
 
 

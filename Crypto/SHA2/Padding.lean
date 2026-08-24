@@ -12,9 +12,8 @@ implementing the preprocessing steps as specified in FIPS PUB 180-4.
 
 /-- Message preprocessing for SHA-256 (pad to 512-bit blocks).
 Internal padding function that adds the required padding and length encoding. -/
-def ByteArray.padSHA256 (data : ByteArray) : ByteArray := Id.run do
+def ByteArray.padSHA256WithLength (data : ByteArray) (originalLength : Nat) : ByteArray := Id.run do
   let mut result := data
-  let originalLength := data.size
 
   -- Append the '1' bit (0x80 byte)
   result := result.push 0x80
@@ -43,11 +42,14 @@ def ByteArray.padSHA256 (data : ByteArray) : ByteArray := Id.run do
 
   result
 
+/-- Pad a complete SHA-224/SHA-256 input. -/
+def ByteArray.padSHA256 (data : ByteArray) : ByteArray :=
+  data.padSHA256WithLength data.size
+
 /-- Message preprocessing for SHA-512 (1024-bit blocks, 128-bit length encoding).
 Internal padding function that adds required padding and 128-bit length encoding. -/
-def ByteArray.padSHA512 (data : ByteArray) : ByteArray := Id.run do
+def ByteArray.padSHA512WithLength (data : ByteArray) (originalLength : Nat) : ByteArray := Id.run do
   let mut result := data
-  let originalLength := data.size
 
   -- Step 1: Append single 1 bit (0x80 byte)
   result := result.push 0x80
@@ -67,8 +69,7 @@ def ByteArray.padSHA512 (data : ByteArray) : ByteArray := Id.run do
 
   -- Step 3: Append original length as 128-bit big-endian integer
   let bitLength := originalLength * 8
-  -- For most practical purposes, high 64 bits will be zero
-  let highBits : UInt64 := 0  -- bitLength >> 64 (but we'll assume it fits in 64 bits)
+  let highBits : UInt64 := (bitLength.shiftRight 64).toUInt64
   let lowBits : UInt64 := bitLength.toUInt64
 
   -- Append high 64 bits (big-endian)
@@ -82,3 +83,7 @@ def ByteArray.padSHA512 (data : ByteArray) : ByteArray := Id.run do
     result := result.push byte
 
   result
+
+/-- Pad a complete SHA-384/SHA-512 input. -/
+def ByteArray.padSHA512 (data : ByteArray) : ByteArray :=
+  data.padSHA512WithLength data.size
