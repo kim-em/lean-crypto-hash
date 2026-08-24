@@ -64,8 +64,13 @@ private def checks : List (String × Bool) :=
       "882ac4aa295b55a55a7fe7f694e1034a929c50e50516ab1654c5253f9900f8fa"),
     ("all incremental contexts", algorithms.all fun algo =>
       streamed algo long == ByteArray.hashWithHex algo long),
+    ("incremental padding boundaries", algorithms.all fun algo =>
+      [0, 1, 55, 56, 63, 64, 71, 72, 111, 112, 127, 128, 135, 136, 143, 144,
+        167, 168, 199, 200].all fun size =>
+          let input := long.extract 0 size
+          streamed algo input == ByteArray.hashWithHex algo input),
     ("sized ByteArray digests", algorithms.all fun algo =>
-      (long.hashWithDigest algo).bytes.toHexString == ByteArray.hashWithHex algo long),
+      (long.hashWithDigest algo).toHexString == ByteArray.hashWithHex algo long),
     ("reusable SHAKE squeeze reader", shakeReaderCheck),
     ("GNU escaped output", Crypto.CLI.formatHashSum "SHA256" "abcd" "a\\b\nc" {} ==
       "\\abcd  a\\\\b\\nc\n"),

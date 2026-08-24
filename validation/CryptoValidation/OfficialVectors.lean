@@ -7,6 +7,7 @@ namespace CryptoValidation.OfficialVectors
 structure TestCase where
   input : ByteArray
   expected : String
+  outputBytes : Nat
 
 private def hexNibble? (c : Char) : Option Nat :=
   if '0' ≤ c && c ≤ '9' then some (c.toNat - '0'.toNat)
@@ -54,13 +55,16 @@ def parse (content : String) : Except String (Array TestCase) := Id.run do
       let expected? := valueAfter? "MD =" line |>.orElse (fun _ => valueAfter? "Output =" line)
       if let some expected := expected? then
         let bitLength := inputBits.getD ((messageHex.getD "").length * 4)
-        let outputIsBytes := outputBits.all (fun n => n % 8 == 0)
+        let outputBitLength := outputBits.getD (expected.length * 4)
+        let outputIsBytes := outputBitLength % 8 == 0
         if bitLength % 8 == 0 && outputIsBytes then
+          if expected.length * 4 != outputBitLength then
+            return .error s!"output length does not match output before '{line}'"
           match ofHex? (messageHex.getD "") with
           | none => return .error s!"invalid message hex before '{line}'"
           | some decoded =>
             let input := if bitLength == 0 then ByteArray.empty else decoded.extract 0 (bitLength / 8)
-            cases := cases.push ⟨input, expected.toLower⟩
+            cases := cases.push ⟨input, expected.toLower, outputBitLength / 8⟩
         inputBits := none
         messageHex := none
   return .ok cases
@@ -69,35 +73,38 @@ structure Suite where
   label : String
   file : String
   algorithm : Nat → HashAlgorithm
+  expectedCases : Nat
 
 private def fixed (algorithm : HashAlgorithm) : Nat → HashAlgorithm := fun _ => algorithm
 
 private def suites : List Suite :=
-  [ ⟨"SHA-1", "SHA1ShortMsg.rsp", fixed .sha1⟩,
-    ⟨"SHA-224", "SHA224ShortMsg.rsp", fixed .sha224⟩,
-    ⟨"SHA-256", "SHA256ShortMsg.rsp", fixed .sha256⟩,
-    ⟨"SHA-384", "SHA384ShortMsg.rsp", fixed .sha384⟩,
-    ⟨"SHA-512", "SHA512ShortMsg.rsp", fixed .sha512⟩,
-    ⟨"SHA3-224", "SHA3_224ShortMsg.rsp", fixed .sha3_224⟩,
-    ⟨"SHA3-256", "SHA3_256ShortMsg.rsp", fixed .sha3_256⟩,
-    ⟨"SHA3-384", "SHA3_384ShortMsg.rsp", fixed .sha3_384⟩,
-    ⟨"SHA3-512", "SHA3_512ShortMsg.rsp", fixed .sha3_512⟩,
-    ⟨"SHAKE128 short", "SHAKE128ShortMsg.rsp", fun n => .shake128 n⟩,
-    ⟨"SHAKE256 short", "SHAKE256ShortMsg.rsp", fun n => .shake256 n⟩,
-    ⟨"SHAKE128 variable output", "SHAKE128VariableOut.rsp", fun n => .shake128 n⟩,
-    ⟨"SHAKE256 variable output", "SHAKE256VariableOut.rsp", fun n => .shake256 n⟩ ]
+  [ ⟨"SHA-1", "SHA1ShortMsg.rsp", fixed .sha1, 65⟩,
+    ⟨"SHA-224", "SHA224ShortMsg.rsp", fixed .sha224, 65⟩,
+    ⟨"SHA-256", "SHA256ShortMsg.rsp", fixed .sha256, 65⟩,
+    ⟨"SHA-384", "SHA384ShortMsg.rsp", fixed .sha384, 129⟩,
+    ⟨"SHA-512", "SHA512ShortMsg.rsp", fixed .sha512, 129⟩,
+    ⟨"SHA3-224", "SHA3_224ShortMsg.rsp", fixed .sha3_224, 145⟩,
+    ⟨"SHA3-256", "SHA3_256ShortMsg.rsp", fixed .sha3_256, 137⟩,
+    ⟨"SHA3-384", "SHA3_384ShortMsg.rsp", fixed .sha3_384, 105⟩,
+    ⟨"SHA3-512", "SHA3_512ShortMsg.rsp", fixed .sha3_512, 73⟩,
+    ⟨"SHAKE128 short", "SHAKE128ShortMsg.rsp", (fun n => .shake128 n), 337⟩,
+    ⟨"SHAKE256 short", "SHAKE256ShortMsg.rsp", (fun n => .shake256 n), 273⟩,
+    ⟨"SHAKE128 variable output", "SHAKE128VariableOut.rsp", (fun n => .shake128 n), 1126⟩,
+    ⟨"SHAKE256 variable output", "SHAKE256VariableOut.rsp", (fun n => .shake256 n), 1246⟩ ]
 
 private def runSuite (suite : Suite) : IO Bool := do
   let path := s!"vectors/nist/{suite.file}"
   let cases ← match parse (← IO.FS.readFile path) with
     | .ok cases => pure cases
     | .error message => throw (IO.userError s!"{path}: {message}")
+  if cases.size != suite.expectedCases then
+    IO.eprintln s!"FAILED {suite.label}: parsed {cases.size} cases; expected {suite.expectedCases}"
+    return false
   let mut passed := true
   for test in cases do
-    let outputBytes := test.expected.length / 2
-    let actual := ByteArray.hashWithHex (suite.algorithm outputBytes) test.input
+    let actual := ByteArray.hashWithHex (suite.algorithm test.outputBytes) test.input
     if actual != test.expected then
-      IO.eprintln s!"FAILED {suite.label} official vector (input bytes {test.input.size}, output bytes {outputBytes})"
+      IO.eprintln s!"FAILED {suite.label} official vector (input bytes {test.input.size}, output bytes {test.outputBytes})"
       passed := false
   if passed then IO.println s!"✓ {suite.label}: {cases.size} official vectors"
   return passed

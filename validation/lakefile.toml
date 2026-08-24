@@ -1,6 +1,6 @@
 name = "crypto-validation"
 version = "0.1.0"
-defaultTargets = ["CryptoValidation", "conformance", "official-vectors"]
+defaultTargets = ["CryptoValidation", "conformance", "official-vectors", "representation-benchmark"]
 testRunner = "conformance"
 
 [[require]]

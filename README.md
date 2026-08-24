@@ -163,7 +163,7 @@ lake exe representation-benchmark
 ```
 
 On the development machine, materializing `Vector UInt8 64` from the current ByteArray-backed
-core was 7–9% slower in two 200,000-iteration runs, exceeding the agreed 5% gate. The public
+core was 7–9% slower in two 200,000-iteration runs, exceeding the agreed 5% threshold. The public
 raw-output path therefore remains ByteArray/BitVec-backed; `ByteVector n` supplies the size theorem
 without changing that storage decision.
 

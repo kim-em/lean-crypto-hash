@@ -34,7 +34,7 @@ namespace Context
 
 /-- Start an incremental SHA-3 or SHAKE computation. -/
 def init (params : SHA3Params) (suffix : UInt8) : Context :=
-  ⟨emptyState, ByteArray.empty, min 200 (max 1 (params.rate / 8)), suffix⟩
+  ⟨emptyState, ByteArray.empty, params.rate / 8, suffix⟩
 
 /-- Absorb another chunk without retaining already-permuted rate blocks. -/
 def update (ctx : Context) (input : ByteArray) : Context := Id.run do

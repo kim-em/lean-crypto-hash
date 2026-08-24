@@ -6,7 +6,7 @@ build_root=$(mktemp -d)
 trap 'rm -rf "$build_root"' EXIT
 archive="$build_root/coreutils-9.11.tar.xz"
 
-curl --fail --location --silent --show-error \
+curl --fail --location --silent --show-error --retry 4 --retry-delay 2 \
   https://ftp.gnu.org/gnu/coreutils/coreutils-9.11.tar.xz \
   --output "$archive"
 printf '%s  %s\n' \
@@ -20,8 +20,9 @@ tools=(md5sum sha1sum sha224sum sha256sum sha384sum sha512sum)
 targets=()
 for tool in "${tools[@]}"; do targets+=("src/$tool"); done
 # Automake's individual program targets omit the generated-header aggregate.
-make --jobs=2 -f Makefile -f <(printf '%s\n' 'generated: $(BUILT_SOURCES)') generated
-make --jobs=2 "${targets[@]}"
+# shellcheck disable=SC2016
+make --jobs="$(nproc)" -f Makefile -f <(printf '%s\n' 'generated: $(BUILT_SOURCES)') generated
+make --jobs="$(nproc)" "${targets[@]}"
 mkdir -p "$install_root/bin"
 for tool in "${tools[@]}"; do
   install -m 0755 "src/$tool" "$install_root/bin/$tool"

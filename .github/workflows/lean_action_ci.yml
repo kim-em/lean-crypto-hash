@@ -2,16 +2,24 @@ name: Lean Action CI
 
 on:
   push:
+    branches: [master]
   pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lean-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: leanprover/lean-action@v1
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596 # v1
         with:
           build: true
           test: true
@@ -19,12 +27,20 @@ jobs:
           use-mathlib-cache: false
       - name: Enforce dependency-free root boundary
         run: validation/scripts/check-root-boundary.sh
+      - name: Cache pinned GNU coreutils 9.11 oracle
+        id: cache-coreutils
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/coreutils-9.11
+          key: coreutils-9.11-394024eda0a5955217ceda9cd1201e65dc8fa3aa29c2951135a49521d57c3cc3
       - name: Build pinned GNU coreutils 9.11 oracle
+        if: steps.cache-coreutils.outputs.cache-hit != 'true'
         run: validation/scripts/install-coreutils-9.11.sh "$RUNNER_TEMP/coreutils-9.11"
       - name: Downstream official-vector and oracle conformance
         run: |
           export PATH="$RUNNER_TEMP/coreutils-9.11/bin:$PATH"
           md5sum --version | head -1
+          openssl version
           cd validation
           lake build --wfail
           lake test

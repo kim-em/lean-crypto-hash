@@ -114,10 +114,36 @@ structure ByteVector (size : Nat) where
 
 namespace ByteVector
 
+/-- Wrap a byte array whose size is already known. -/
+def ofByteArray {n : Nat} (bytes : ByteArray) (size_eq : bytes.size = n) : ByteVector n :=
+  ⟨bytes, size_eq⟩
+
+/-- Return the underlying contiguous byte array. -/
+def toByteArray (value : ByteVector n) : ByteArray := value.bytes
+
+/-- Read a byte at a statically valid index. -/
+def get (value : ByteVector n) (i : Fin n) : UInt8 :=
+  value.bytes[i.val]'(by rw [value.size_eq]; exact i.isLt)
+
+/-- Render the bytes as lowercase hexadecimal. -/
+def toHexString (value : ByteVector n) : String := value.bytes.toHexString
+
+@[ext]
+theorem ext {left right : ByteVector n} (h : left.bytes = right.bytes) : left = right := by
+  cases left
+  cases right
+  simp_all
+
+instance : BEq (ByteVector n) where
+  beq left right := left.bytes == right.bytes
+
+instance : Repr (ByteVector n) where
+  reprPrec value _ := repr value.bytes.toList
+
 /-- Convert type-sized bits to their standard big-endian bytes. -/
 def ofBitVec {n : Nat} (bits : BitVec (n * 8)) : ByteVector n :=
   let bytes := ByteArray.mk <| Array.ofFn fun i : Fin n =>
-    ((bits.toNat >>> (8 * (n - 1 - i.val))) &&& 0xff).toUInt8
+    (bits.extractLsb' (8 * (n - 1 - i.val)) 8).toNat.toUInt8
   { bytes := bytes
     size_eq := by
       change (Array.ofFn _).size = n
@@ -217,7 +243,16 @@ Example:
 def String.hashWith (algo : HashAlgorithm) (s : String) : String :=
   (algo.newContext.update s.toUTF8).finalizeHex
 
-/-- Unified hash function for ByteArray returning appropriately sized BitVec.
+/-- Convert a byte array to a big-endian bit vector of the requested width. -/
+private def ByteArray.toBitVec (data : ByteArray) (width : Nat) : BitVec width := Id.run do
+  let mut result : BitVec width := 0
+  for i in [0:min data.size (width / 8)] do
+    if h : i < data.size then
+      let byte := data[i].toNat
+      result := result ||| (BitVec.ofNat width (byte.shiftLeft (8 * (width / 8 - 1 - i))))
+  return result
+
+/-- Unified hash function for ByteArray returning an appropriately sized BitVec.
 
 Computes the hash of a byte array using the specified algorithm and returns
 the result as a BitVec with the correct bit size for the algorithm. This provides
@@ -228,16 +263,6 @@ Example:
 #eval ByteArray.hashWith HashAlgorithm.sha256 "hello world".toUTF8
 -- Returns: BitVec 256 with the SHA-256 hash bits
 ``` -/
--- Convert ByteArray to BitVec of specified width
-def ByteArray.toBitVec (data : ByteArray) (width : Nat) : BitVec width := Id.run do
-  let mut result : BitVec width := 0
-  for i in [0:min data.size (width / 8)] do
-    if h : i < data.size then
-      let byte := data[i].toNat
-      result := result ||| (BitVec.ofNat width (byte.shiftLeft (8 * (width / 8 - 1 - i))))
-  return result
-
--- Note: SHA-3 and SHAKE functions return ByteArray, others return BitVec
 def ByteArray.hashWith (algo : HashAlgorithm) (data : ByteArray) : BitVec algo.bitSize :=
   match algo with
   | HashAlgorithm.md5 => data.md5
@@ -255,7 +280,12 @@ def ByteArray.hashWith (algo : HashAlgorithm) (data : ByteArray) : BitVec algo.b
 
 /-- Hash bytes to a ByteArray-backed digest with a static output-size theorem. -/
 def ByteArray.hashWithDigest (algo : HashAlgorithm) (data : ByteArray) : HashDigest algo :=
-  ByteVector.ofBitVec (data.hashWith algo)
+  let bytes := (algo.newContext.update data).finalize
+  if h : bytes.size = algo.outputBytes then
+    ByteVector.ofByteArray bytes h
+  else
+    ByteVector.ofBitVec (data.hashWith algo)
 
+/-- Hash bytes and render the digest as lowercase hexadecimal. -/
 def ByteArray.hashWithHex (algo : HashAlgorithm) (data : ByteArray) : String :=
   (algo.newContext.update data).finalizeHex

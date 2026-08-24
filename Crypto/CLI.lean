@@ -12,6 +12,7 @@ namespace Crypto.CLI
 
 structure SHASumOptions where
   binary : Bool := false
+  modeSpecified : Bool := false
   check : Bool := false
   tag : Bool := false
   zero : Bool := false
@@ -33,10 +34,12 @@ def parseArgs (args : List String) : Except String SHASumOptions :=
     match args with
     | [] => .ok opts
     | "--" :: rest => .ok (rest.foldl addFile opts)
-    | "-b" :: rest | "--binary" :: rest => go rest { opts with binary := true }
+    | "-b" :: rest | "--binary" :: rest =>
+      go rest { opts with binary := true, modeSpecified := true }
     | "-c" :: rest | "--check" :: rest => go rest { opts with check := true }
     | "--tag" :: rest => go rest { opts with tag := true }
-    | "-t" :: rest | "--text" :: rest => go rest { opts with binary := false }
+    | "-t" :: rest | "--text" :: rest =>
+      go rest { opts with binary := false, modeSpecified := true }
     | "-z" :: rest | "--zero" :: rest => go rest { opts with zero := true }
     | "--ignore-missing" :: rest => go rest { opts with ignoreMissing := true }
     | "--quiet" :: rest => go rest { opts with quiet := true }
@@ -46,7 +49,18 @@ def parseArgs (args : List String) : Except String SHASumOptions :=
     | "--help" :: rest => go rest { opts with help := true }
     | "--version" :: rest => go rest { opts with version := true }
     | file :: rest =>
-      if file.startsWith "-" && file != "-" then
+      if file.startsWith "-" && !file.startsWith "--" && file.length > 2 &&
+          (file.drop 1).toString.toList.all (fun c => "bctzw".contains c) then
+        let opts := (file.drop 1).toString.toList.foldl (fun opts c =>
+          match c with
+          | 'b' => { opts with binary := true, modeSpecified := true }
+          | 'c' => { opts with check := true }
+          | 't' => { opts with binary := false, modeSpecified := true }
+          | 'z' => { opts with zero := true }
+          | 'w' => { opts with warn := true }
+          | _ => opts) opts
+        go rest opts
+      else if file.startsWith "-" && file != "-" then
         .error s!"unrecognized option '{file}'"
       else
         go rest (addFile opts file)
@@ -70,6 +84,11 @@ def parseShakeLength (args : List String) : Except String (Nat × List String) :
     | arg :: tail =>
       if arg.startsWith "--length=" then
         let value := (arg.drop 9).toString
+        match value.toNat? with
+        | some n => go tail (some n) rest
+        | none => .error s!"invalid output length '{value}'"
+      else if arg.startsWith "-l" && arg.length > 2 then
+        let value := (arg.drop 2).toString
         match value.toNat? with
         | some n => go tail (some n) rest
         | none => .error s!"invalid output length '{value}'"
@@ -180,8 +199,23 @@ private def reportFilename (filename : String) : String :=
   else
     "\\" ++ escapeFilename filename
 
+private inductive CheckResult where
+  | success
+  | mismatch
+  | missingIgnored
+  | unreadable
+
+private def errorDescription : IO.Error → String
+  | .noFileOrDirectory .. => "No such file or directory"
+  | .permissionDenied .. => "Permission denied"
+  | .inappropriateType .. => "Inappropriate file type or format"
+  | error => (error.toString.splitOn "\n").head?.getD "I/O error"
+
+private def plural (count : Nat) (singular plural : String) : String :=
+  if count == 1 then singular else plural
+
 def checkFile (algo : HashAlgorithm) (filename : String) (expectedHash : String)
-    (opts : SHASumOptions) : IO (Option Bool) := do
+    (opts : SHASumOptions) : IO CheckResult := do
   try
     let actualHash ← hashFile algo filename
     let success := actualHash == expectedHash.toLower
@@ -190,14 +224,15 @@ def checkFile (algo : HashAlgorithm) (filename : String) (expectedHash : String)
         if !opts.quiet then IO.println s!"{reportFilename filename}: OK"
       else
         IO.println s!"{reportFilename filename}: FAILED"
-    return some success
+    return if success then .success else .mismatch
   catch error =>
     if opts.ignoreMissing then
       match error with
-      | .noFileOrDirectory .. => return none
+      | .noFileOrDirectory .. => return .missingIgnored
       | _ => pure ()
+    IO.eprintln s!"{algo.tool}: {reportFilename filename}: {errorDescription error}"
     if !opts.status then IO.println s!"{reportFilename filename}: FAILED open or read"
-    return some false
+    return .unreadable
 
 private def readChecksumSource (filename : String) : IO ByteArray := do
   if filename == "-" then
@@ -205,46 +240,75 @@ private def readChecksumSource (filename : String) : IO ByteArray := do
   else
     IO.FS.readBinFile filename
 
-private def checksumRecords (content : String) (zero : Bool) : List String :=
+private def checksumRecords (content : String) (zero : Bool) : List (Nat × String) :=
   let delimiter := if zero then "\x00" else "\n"
-  (content.splitOn delimiter).filter (fun line => !line.isEmpty)
+  (content.splitOn delimiter).zipIdx.filterMap fun (line, index) =>
+    if line.isEmpty || line.startsWith "#" then none else some (index + 1, line)
+
+private def checksumSourceName (filename : String) : String :=
+  if filename == "-" then "standard input" else filename
 
 def runCheckMode (algo : HashAlgorithm) (files : List String) (opts : SHASumOptions) : IO Unit := do
   let mut allSuccess := true
-  let mut hasMalformed := false
-  let mut hasProperlyFormatted := false
-  let mut hasVerifiedFile := false
   let sources := if files.isEmpty then ["-"] else files
   for file in sources do
+    let mut hasMalformed := false
+    let mut hasProperlyFormatted := false
+    let mut hasVerifiedFile := false
+    let mut malformedCount := 0
+    let mut mismatchCount := 0
+    let mut unreadableCount := 0
     try
       let bytes ← readChecksumSource file
       let content ← match String.fromUTF8? bytes with
         | some content => pure content
         | none => throw (IO.userError "checksum file is not valid UTF-8")
-      for line in checksumRecords content opts.zero do
+      for (lineNumber, line) in checksumRecords content opts.zero do
         match parseChecksumLine algo.name (algo.bitSize / 4) line with
         | some (expectedHash, filename, _binary) =>
           hasProperlyFormatted := true
           match ← checkFile algo filename expectedHash opts with
-          | some success =>
+          | .success =>
             hasVerifiedFile := true
-            if !success then allSuccess := false
-          | none => pure ()
+          | .mismatch =>
+            hasVerifiedFile := true
+            mismatchCount := mismatchCount + 1
+            allSuccess := false
+          | .unreadable =>
+            hasVerifiedFile := true
+            unreadableCount := unreadableCount + 1
+            allSuccess := false
+          | .missingIgnored => pure ()
         | none =>
           hasMalformed := true
-          if (opts.warn || opts.strict) && !opts.status then
-            IO.eprintln s!"{algo.tool}: {file}: improperly formatted {algo.name} checksum line"
+          malformedCount := malformedCount + 1
+          if opts.warn && !opts.status then
+            let source := reportFilename (checksumSourceName file)
+            IO.eprintln s!"{algo.tool}: {source}: {lineNumber}: improperly formatted {algo.name} checksum line"
     catch _ =>
       if !opts.status then IO.eprintln s!"{algo.tool}: {file}: open or read failed"
       allSuccess := false
-  if !hasProperlyFormatted then
-    if !opts.status then IO.eprintln s!"{algo.tool}: no properly formatted checksum lines found"
-    allSuccess := false
-  else if opts.ignoreMissing && !hasVerifiedFile then
-    if !opts.status then
-      IO.eprintln s!"{algo.tool}: {sources.head?.getD "-"}: no file was verified"
-    allSuccess := false
-  if opts.strict && hasMalformed then allSuccess := false
+      continue
+    if hasProperlyFormatted && !opts.status then
+      if malformedCount > 0 then
+        IO.eprintln (s!"{algo.tool}: WARNING: {malformedCount} " ++
+          plural malformedCount "line is" "lines are" ++ " improperly formatted")
+      if unreadableCount > 0 then
+        IO.eprintln (s!"{algo.tool}: WARNING: {unreadableCount} listed " ++
+          plural unreadableCount "file could" "files could" ++ " not be read")
+      if mismatchCount > 0 then
+        IO.eprintln (s!"{algo.tool}: WARNING: {mismatchCount} computed " ++
+          plural mismatchCount "checksum did" "checksums did" ++ " NOT match")
+    if !hasProperlyFormatted then
+      let source := reportFilename (checksumSourceName file)
+      IO.eprintln s!"{algo.tool}: {source}: no properly formatted checksum lines found"
+      allSuccess := false
+    else if opts.ignoreMissing && !hasVerifiedFile then
+      if !opts.status then
+        let source := reportFilename (checksumSourceName file)
+        IO.eprintln s!"{algo.tool}: {source}: no file was verified"
+      allSuccess := false
+    if opts.strict && hasMalformed then allSuccess := false
   if !allSuccess then throw (IO.userError "checksum verification failed")
 
 def printHelp (algo : HashAlgorithm) : IO Unit := do
@@ -284,8 +348,14 @@ def runHashSum (algo : HashAlgorithm) (args : List String) : IO Unit := do
     if opts.tag then
       IO.eprintln s!"{algo.tool}: the --tag option is meaningless when verifying checksums"
       throw (IO.userError "unsupported option combination")
+    if opts.modeSpecified then
+      IO.eprintln s!"{algo.tool}: the --binary and --text options are meaningless when verifying checksums"
+      throw (IO.userError "unsupported option combination")
     runCheckMode algo opts.files opts
     return
+  if opts.tag && opts.modeSpecified && !opts.binary then
+    IO.eprintln s!"{algo.tool}: --tag does not support --text mode"
+    throw (IO.userError "unsupported option combination")
   let verificationOnly :=
     if opts.ignoreMissing then some "--ignore-missing"
     else if opts.quiet then some "--quiet"
@@ -302,8 +372,8 @@ def runHashSum (algo : HashAlgorithm) (args : List String) : IO Unit := do
     try
       let hash ← hashFile algo file
       IO.print (formatHashSum algo.name hash file opts)
-    catch _ =>
-      IO.eprintln s!"{algo.tool}: {file}: open or read failed"
+    catch error =>
+      IO.eprintln s!"{algo.tool}: {reportFilename file}: {errorDescription error}"
       success := false
   if !success then throw (IO.userError "one or more inputs could not be read")
 
@@ -319,11 +389,15 @@ def runHashSumMain (algo : HashAlgorithm) (args : List String) : IO UInt32 := do
 def runShakeSumMain (algorithm : Nat → HashAlgorithm) (toolName : String)
     (args : List String) : IO UInt32 := do
   try
-    if args.contains "--help" || args.contains "-h" then
+    let optionArgs := args.takeWhile (· != "--")
+    if optionArgs.contains "--help" || optionArgs.contains "-h" then
       IO.println s!"Usage: {toolName} -l BYTES [OPTION]... [FILE]..."
       IO.println "Generate a SHAKE digest with the required output length in bytes."
       IO.println "  -l, --length BYTES  required output length (zero is valid)"
       IO.println "  -h, --help          display this help and exit"
+      return 0
+    if optionArgs.contains "--version" then
+      printVersion (algorithm 0)
       return 0
     let (outputLength, remainingArgs) ← match parseShakeLength args with
       | .ok result => pure result

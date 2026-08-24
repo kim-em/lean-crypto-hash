@@ -10,6 +10,11 @@ import CryptoValidation.OfficialVectors
 /-- Executables are built by the dependency-free root package. -/
 def rootTool (name : String) : String := s!"../.lake/build/bin/{name}"
 
+initialize conformanceTempRoot : System.FilePath ← IO.FS.createTempDir
+
+private def tempFile (name : String) : String :=
+  (conformanceTempRoot / name).toString
+
 /-! # External-oracle and long-message conformance suite
 
 This runner complements the separately parsed vendored CAVP response files with
@@ -425,7 +430,7 @@ def testSHACheckMode (tool : String) (filename : String) : IO (Bool × String) :
     let hashValue := systemOutput.trimAscii.toString.splitOn "  " |>.head!
 
     -- Create a checksum file with the system-generated hash
-    let checksumFile := s!"/tmp/{tool}test.sums"
+    let checksumFile := tempFile s!"{tool}test.sums"
     let content := s!"{hashValue}  {filename}\n"
     IO.FS.writeFile checksumFile content
 
@@ -459,7 +464,7 @@ def testSHABSDCheckMode (tool : String) (filename : String) : IO (Bool × String
     let hashValue := systemOutput.trimAscii.toString.splitOn "  " |>.head!
 
     -- Create a BSD-style checksum file
-    let checksumFile := s!"/tmp/{tool}bsd.sums"
+    let checksumFile := tempFile s!"{tool}bsd.sums"
     let algName := if tool == "sha256sum" then "SHA256"
                    else if tool == "sha224sum" then "SHA224"
                    else if tool == "sha384sum" then "SHA384"
@@ -581,7 +586,7 @@ def nistTestVectors : List (HashAlgorithm × String × String × String) := [
 -- Extremely Long Test Vectors (WARNING: These are very slow!)
 -- Only run with --long flag due to computational cost
 def nistExtremelyLongTestVectors : List (HashAlgorithm × String × String × String) := [
-  -- Extremely long message: 56-character string repeated 16,777,216 times (~1GB)
+  -- Extremely long message: 64-character string repeated 16,777,216 times (~1GB)
   -- Note: These tests can take several minutes to complete
   (HashAlgorithm.sha256, "Gigabyte message test",
    String.join (List.replicate 16777216 "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmno"),
@@ -651,9 +656,9 @@ def runSHAComprehensiveCLITests (algo : HashAlgorithm) : IO (List Bool × List S
       testSHATagOption algo.tool "abc" "tag option",
       testSHABinaryOption algo.tool "abc" "binary option",
       testSHAZeroOption algo.tool "abc" "zero option",
-      testSHAFileInput algo.tool s!"/tmp/{algo.tool}_file_test.txt" "test content",
-      testSHACheckMode algo.tool s!"/tmp/{algo.tool}_check_test.txt",
-      testSHABSDCheckMode algo.tool s!"/tmp/{algo.tool}_bsd_test.txt"
+      testSHAFileInput algo.tool (tempFile s!"{algo.tool}_file_test.txt") "test content",
+      testSHACheckMode algo.tool (tempFile s!"{algo.tool}_check_test.txt"),
+      testSHABSDCheckMode algo.tool (tempFile s!"{algo.tool}_bsd_test.txt")
     ]
 
     -- Print results in order
@@ -671,7 +676,7 @@ def runSHAComprehensiveCLITests (algo : HashAlgorithm) : IO (List Bool × List S
 -- Test binary file handling
 def testBinaryFileHandling : IO Bool := do
   -- Create a test binary file with null bytes and invalid UTF-8
-  let binaryFile := "/tmp/test_binary_file.bin"
+  let binaryFile := tempFile "test_binary_file.bin"
   let binaryData := ByteArray.mk #[0x00, 0x01, 0xFF, 0xFE, 0x80, 0x00, 0x00]
   IO.FS.writeBinFile binaryFile binaryData
 
@@ -712,6 +717,11 @@ def testBinaryFileHandling : IO Bool := do
   return result
 
 def runTests (args : List String := []) : IO Unit := do
+  let rootTools := ["md5sum", "sha1sum", "sha224sum", "sha256sum", "sha384sum", "sha512sum",
+    "sha3_224sum", "sha3_256sum", "sha3_384sum", "sha3_512sum", "shake128sum", "shake256sum"]
+  for tool in rootTools do
+    if !(← System.FilePath.pathExists (rootTool tool)) then
+      throw (IO.userError s!"missing root executable {rootTool tool}; run 'lake build' at the repository root first")
   -- Define all test cases as pairs of (input, description)
   let testCases := [
     -- Basic test cases
@@ -791,35 +801,39 @@ def runTests (args : List String := []) : IO Unit := do
   ]
 
   -- Create test files for md5sum file operations
-  IO.FS.writeFile "/tmp/md5sumtest1" "hello"
-  IO.FS.writeFile "/tmp/md5sumtest2" "world\n"
+  let md5File1 := tempFile "md5sumtest1"
+  let md5File2 := tempFile "md5sumtest2"
+  let md5Checksums := tempFile "checksums.txt"
+  let md5BsdChecksums := tempFile "checksums-bsd.txt"
+  IO.FS.writeFile md5File1 "hello"
+  IO.FS.writeFile md5File2 "world\n"
 
   -- Test file input
   let md5SumFileResults ← parallelMapM [
-    testMD5SumFileOption "/tmp/md5sumtest1" #[] "file input",
-    testMD5SumFileOption "/tmp/md5sumtest2" #[] "file with newline",
-    testMD5SumFileOption "/tmp/md5sumtest1" #["--tag"] "file with --tag"
+    testMD5SumFileOption md5File1 #[] "file input",
+    testMD5SumFileOption md5File2 #[] "file with newline",
+    testMD5SumFileOption md5File1 #["--tag"] "file with --tag"
   ]
 
   -- Test check mode
   -- First create checksum files
-  let content1 ← IO.FS.readFile "/tmp/md5sumtest1"
-  let content2 ← IO.FS.readFile "/tmp/md5sumtest2"
+  let content1 ← IO.FS.readFile md5File1
+  let content2 ← IO.FS.readFile md5File2
   let hash1 := content1.md5
   let hash2 := content2.md5
-  IO.FS.writeFile "/tmp/checksums.txt" s!"{hash1}  /tmp/md5sumtest1\n{hash2}  /tmp/md5sumtest2\n"
-  IO.FS.writeFile "/tmp/checksums-bsd.txt" s!"MD5 (/tmp/md5sumtest1) = {hash1}\nMD5 (/tmp/md5sumtest2) = {hash2}\n"
+  IO.FS.writeFile md5Checksums s!"{hash1}  {md5File1}\n{hash2}  {md5File2}\n"
+  IO.FS.writeFile md5BsdChecksums s!"MD5 ({md5File1}) = {hash1}\nMD5 ({md5File2}) = {hash2}\n"
 
   let checkResults ← parallelMapM [
-    testMD5SumFileOption "/tmp/checksums.txt" #["-c"] "check mode GNU format",
-    testMD5SumFileOption "/tmp/checksums-bsd.txt" #["-c"] "check mode BSD format"
+    testMD5SumFileOption md5Checksums #["-c"] "check mode GNU format",
+    testMD5SumFileOption md5BsdChecksums #["-c"] "check mode BSD format"
   ]
 
   -- Clean up md5sum test files
-  try IO.FS.removeFile "/tmp/md5sumtest1" catch _ => pure ()
-  try IO.FS.removeFile "/tmp/md5sumtest2" catch _ => pure ()
-  try IO.FS.removeFile "/tmp/checksums.txt" catch _ => pure ()
-  try IO.FS.removeFile "/tmp/checksums-bsd.txt" catch _ => pure ()
+  try IO.FS.removeFile md5File1 catch _ => pure ()
+  try IO.FS.removeFile md5File2 catch _ => pure ()
+  try IO.FS.removeFile md5Checksums catch _ => pure ()
+  try IO.FS.removeFile md5BsdChecksums catch _ => pure ()
 
   IO.println "=== End MD5Sum CLI tests ==="
 
@@ -856,33 +870,37 @@ def runTests (args : List String := []) : IO Unit := do
     ]
 
     -- Create temporary files for file input tests
-    IO.FS.writeFile "/tmp/sha1sumtest1" "test content"
-    IO.FS.writeFile "/tmp/sha1sumtest2" "test content\nwith newline"
+    let sha1File1 := tempFile "sha1sumtest1"
+    let sha1File2 := tempFile "sha1sumtest2"
+    let sha1Checksums := tempFile "checksums-sha1.txt"
+    let sha1BsdChecksums := tempFile "checksums-sha1-bsd.txt"
+    IO.FS.writeFile sha1File1 "test content"
+    IO.FS.writeFile sha1File2 "test content\nwith newline"
 
     let sha1SumFileResults ← parallelMapM [
-      testSHA1SumFileOption "/tmp/sha1sumtest1" #[] "file input",
-      testSHA1SumFileOption "/tmp/sha1sumtest2" #[] "file with newline",
-      testSHA1SumFileOption "/tmp/sha1sumtest1" #["--tag"] "file with --tag"
+      testSHA1SumFileOption sha1File1 #[] "file input",
+      testSHA1SumFileOption sha1File2 #[] "file with newline",
+      testSHA1SumFileOption sha1File1 #["--tag"] "file with --tag"
     ]
 
     -- Create checksums for check mode tests
-    let content1 ← IO.FS.readFile "/tmp/sha1sumtest1"
-    let content2 ← IO.FS.readFile "/tmp/sha1sumtest2"
+    let content1 ← IO.FS.readFile sha1File1
+    let content2 ← IO.FS.readFile sha1File2
     let hash1 := content1.sha1
     let hash2 := content2.sha1
-    IO.FS.writeFile "/tmp/checksums-sha1.txt" s!"{hash1}  /tmp/sha1sumtest1\n{hash2}  /tmp/sha1sumtest2\n"
-    IO.FS.writeFile "/tmp/checksums-sha1-bsd.txt" s!"SHA1 (/tmp/sha1sumtest1) = {hash1}\nSHA1 (/tmp/sha1sumtest2) = {hash2}\n"
+    IO.FS.writeFile sha1Checksums s!"{hash1}  {sha1File1}\n{hash2}  {sha1File2}\n"
+    IO.FS.writeFile sha1BsdChecksums s!"SHA1 ({sha1File1}) = {hash1}\nSHA1 ({sha1File2}) = {hash2}\n"
 
     let checkResults ← parallelMapM [
-      testSHA1SumFileOption "/tmp/checksums-sha1.txt" #["-c"] "check mode GNU format",
-      testSHA1SumFileOption "/tmp/checksums-sha1-bsd.txt" #["-c"] "check mode BSD format"
+      testSHA1SumFileOption sha1Checksums #["-c"] "check mode GNU format",
+      testSHA1SumFileOption sha1BsdChecksums #["-c"] "check mode BSD format"
     ]
 
     -- Clean up sha1sum test files
-    try IO.FS.removeFile "/tmp/sha1sumtest1" catch _ => pure ()
-    try IO.FS.removeFile "/tmp/sha1sumtest2" catch _ => pure ()
-    try IO.FS.removeFile "/tmp/checksums-sha1.txt" catch _ => pure ()
-    try IO.FS.removeFile "/tmp/checksums-sha1-bsd.txt" catch _ => pure ()
+    try IO.FS.removeFile sha1File1 catch _ => pure ()
+    try IO.FS.removeFile sha1File2 catch _ => pure ()
+    try IO.FS.removeFile sha1Checksums catch _ => pure ()
+    try IO.FS.removeFile sha1BsdChecksums catch _ => pure ()
 
     pure (basicSha1SumResults ++ tagResults ++ modeResults ++ zeroResults ++ sha1SumFileResults ++ checkResults)
   else do
@@ -925,8 +943,6 @@ def runTests (args : List String := []) : IO Unit := do
 
   let allComprehensiveCLIResults ← shaAlgorithms.mapM (fun variant => do
     let (results, _) ← runSHAComprehensiveCLITests variant
-    -- Small delay to avoid file conflicts between test batches
-    IO.sleep 100
     return results
   )
 
@@ -952,7 +968,7 @@ def runTests (args : List String := []) : IO Unit := do
   else
     -- Skip extremely long tests but inform user how to run them
     IO.println "\n⏭️  Skipping extremely long tests (gigabyte-scale messages)"
-    IO.println "   Run `lake exe test --long` to include NIST extremely long message tests"
+    IO.println "   Run `lake exe conformance --long` to include NIST extremely long message tests"
 
   let allTestsPassed := md5Results.all (· == true) &&
                         sha1Results.all (· == true) &&
@@ -977,4 +993,6 @@ def runTests (args : List String := []) : IO Unit := do
     IO.println "\n❌ Some tests failed!"
     throw (IO.userError "Test failures detected")
 
-def main (args : List String) : IO Unit := runTests args
+def main (args : List String) : IO Unit :=
+  try runTests args
+  finally IO.FS.removeDirAll conformanceTempRoot

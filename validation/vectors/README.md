@@ -1,8 +1,9 @@
 # Vendored conformance vectors
 
-The `.rsp` files in `nist/` are unmodified byte-oriented response files published by the
+The `.rsp` files in `nist/` are byte-oriented response files published by the
 US National Institute of Standards and Technology (NIST) Cryptographic Algorithm
-Validation Program. They were downloaded on 2026-08-24 from:
+Validation Program. They were downloaded on 2026-08-24 from the archives below; only
+their CRLF line endings were normalized to LF for the repository:
 
 - `shabytetestvectors.zip` — SHA-1 and SHA-2 byte-oriented vectors
   <https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/shs/shabytetestvectors.zip>
