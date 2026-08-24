@@ -26,12 +26,12 @@ def expandMessageSchedule (block : Vector UInt32 16) : Vector UInt32 64 := Id.ru
 
   -- First 16 words are copied directly from the input block
   for h : i in (0 : Nat) ... 16 do
-    have hi : i < 16 := Std.PRange.lt_upper_of_mem h
+    have hi : i < 16 := Std.Rco.lt_upper_of_mem h
     W := W.set i block[i]
 
   -- Remaining 48 words are computed using the recurrence relation
   for h : i in (16 : Nat) ... 64 do
-    have hi : i < 64 := Std.PRange.lt_upper_of_mem h
+    have hi : i < 64 := Std.Rco.lt_upper_of_mem h
     let s0 := sigma0 W[i-15]
     let s1 := sigma1 W[i-2]
     let newWord := W[i-16] + s0 + W[i-7] + s1
@@ -104,12 +104,12 @@ def compressBlock (hash : Vector UInt64 8) (block : Vector UInt64 16) : Vector U
 
   -- First 16 words are copied directly from the input block
   for h : t in (0 : Nat) ... 16 do
-    have ht : t < 16 := Std.PRange.lt_upper_of_mem h
+    have ht : t < 16 := Std.Rco.lt_upper_of_mem h
     W := W.set t block[t]
 
   -- Extend to 80 words
   for h : t in (16 : Nat) ... 80 do
-    have ht : t < 80 := Std.PRange.lt_upper_of_mem h
+    have ht : t < 80 := Std.Rco.lt_upper_of_mem h
     let w_15 := W[t - 15]
     let w_2 := W[t - 2]
     let w_16 := W[t - 16]
