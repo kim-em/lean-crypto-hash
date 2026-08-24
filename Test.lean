@@ -11,16 +11,19 @@ open Crypto Crypto.Hash
 
 /- The public algorithm index cannot be forged with a mismatched internal context. -/
 /--
-error: Unknown constant `Crypto.Hash.Context.mk`
+error: Unknown constant `Crypto.Hash.Context.sha224`
 -/
 #guard_msgs in
-#check Crypto.Hash.Context.mk
+#check Crypto.Hash.Context.sha224
+  (Crypto.Hash.Internal.SHA256.Context.init Crypto.Hash.Internal.SHA256.H0)
 
 /--
-error: Unknown constant `Crypto.Hash.XofContext.mk`
+error: Unknown constant `Crypto.Hash.XofContext.shake128`
 -/
 #guard_msgs in
-#check Crypto.Hash.XofContext.mk
+#check Crypto.Hash.XofContext.shake128
+  (Crypto.Hash.Internal.SHA3.Context.init Crypto.Hash.Internal.SHA3.shake256_params
+    Crypto.Hash.Internal.SHA3.shake_suffix)
 
 private def chunks (data : ByteArray) : List ByteArray :=
   [data.extract 0 1, data.extract 1 63, ByteArray.empty,
