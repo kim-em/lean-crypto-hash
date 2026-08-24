@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596 # v1
         with:
           build: true
@@ -29,7 +29,7 @@ jobs:
         run: validation/scripts/check-root-boundary.sh
       - name: Cache pinned GNU coreutils 9.11 oracle
         id: cache-coreutils
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: ${{ runner.temp }}/coreutils-9.11
           key: coreutils-9.11-394024eda0a5955217ceda9cd1201e65dc8fa3aa29c2951135a49521d57c3cc3
