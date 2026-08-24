@@ -1,4 +1,8 @@
+module
+
 import Crypto
+
+public section
 
 /-! Parsers and runners for the vendored NIST CAVP `.rsp` files. -/
 
@@ -6,27 +10,10 @@ namespace CryptoValidation.OfficialVectors
 
 open Crypto.Hash
 
-structure TestCase where
+public structure TestCase where
   input : ByteArray
   expected : String
   outputBytes : Nat
-
-private def hexNibble? (c : Char) : Option Nat :=
-  if '0' ≤ c && c ≤ '9' then some (c.toNat - '0'.toNat)
-  else if 'a' ≤ c && c ≤ 'f' then some (c.toNat - 'a'.toNat + 10)
-  else if 'A' ≤ c && c ≤ 'F' then some (c.toNat - 'A'.toNat + 10)
-  else none
-
-private def ofHex? (hex : String) : Option ByteArray :=
-  let rec go (chars : List Char) (result : ByteArray) : Option ByteArray := do
-    match chars with
-    | [] => some result
-    | high :: low :: rest =>
-      let high ← hexNibble? high
-      let low ← hexNibble? low
-      go rest (result.push (high * 16 + low).toUInt8)
-    | _ => none
-  go hex.toList ByteArray.empty
 
 private def valueAfter? (marker line : String) : Option String :=
   if line.startsWith marker then some ((line.drop marker.length).toString.trimAscii.toString)
@@ -62,7 +49,7 @@ def parse (content : String) : Except String (Array TestCase) := Id.run do
         if bitLength % 8 == 0 && outputIsBytes then
           if expected.length * 4 != outputBitLength then
             return .error s!"output length does not match output before '{line}'"
-          match ofHex? (messageHex.getD "") with
+          match Crypto.Hex.decode? (messageHex.getD "") with
           | none => return .error s!"invalid message hex before '{line}'"
           | some decoded =>
             let input := if bitLength == 0 then ByteArray.empty else decoded.extract 0 (bitLength / 8)
@@ -115,10 +102,93 @@ private def runSuite (suite : Suite) : IO Bool := do
   if passed then IO.println s!"✓ {suite.label}: {cases.size} official vectors"
   return passed
 
+private structure HmacTestCase where
+  algorithm : Crypto.HMAC.Algorithm
+  key : ByteArray
+  input : ByteArray
+  expected : ByteArray
+  tagBytes : Nat
+
+/-- Parse the SHA-2 groups from NIST CAVP's `HMAC.rsp`; its SHA-1 group is out of scope. -/
+private def parseHmac (content : String) : Except String (Array HmacTestCase) := Id.run do
+  let mut cases := #[]
+  let mut algorithm : Option Crypto.HMAC.Algorithm := none
+  let mut selectedGroup := false
+  let mut keyBytesExpected : Option Nat := none
+  let mut tagBytesExpected : Option Nat := none
+  let mut keyHex : Option String := none
+  let mut messageHex : Option String := none
+  for rawLine in content.splitOn "\n" do
+    let line := rawLine.trimAscii.toString
+    if line.startsWith "[L=" && line.endsWith "]" then
+      let lengthText := (line.drop 3).toString.dropEnd 1 |>.toString
+      let some length := lengthText.toNat?
+        | return .error s!"invalid HMAC digest group '{line}'"
+      algorithm := match length with
+        | 28 => some .sha224
+        | 32 => some .sha256
+        | 48 => some .sha384
+        | 64 => some .sha512
+        | _ => none
+      selectedGroup := length != 20
+      if selectedGroup && algorithm.isNone then
+        return .error s!"unsupported HMAC digest group '{line}'"
+    else if let some n := parseNatAfter? "Klen =" line then
+      keyBytesExpected := some n
+    else if let some n := parseNatAfter? "Tlen =" line then
+      tagBytesExpected := some n
+    else if let some value := valueAfter? "Key =" line then
+      keyHex := some value
+    else if let some value := valueAfter? "Msg =" line then
+      messageHex := some value
+    else if let some value := valueAfter? "Mac =" line then
+      if let some hmacAlgorithm := algorithm then
+        let some expectedKeyBytes := keyBytesExpected
+          | return .error s!"missing Klen before '{line}'"
+        let some expectedTagBytes := tagBytesExpected
+          | return .error s!"missing Tlen before '{line}'"
+        let some decodedKey := Crypto.Hex.decode? (keyHex.getD "")
+          | return .error s!"invalid key hex before '{line}'"
+        let some decodedMessage := Crypto.Hex.decode? (messageHex.getD "")
+          | return .error s!"invalid message hex before '{line}'"
+        let some decodedTag := Crypto.Hex.decode? value
+          | return .error s!"invalid tag hex in '{line}'"
+        if decodedKey.size != expectedKeyBytes then
+          return .error s!"Klen does not match key before '{line}'"
+        if decodedTag.size != expectedTagBytes then
+          return .error s!"Tlen does not match tag in '{line}'"
+        cases := cases.push
+          ⟨hmacAlgorithm, decodedKey, decodedMessage, decodedTag, expectedTagBytes⟩
+      keyBytesExpected := none
+      tagBytesExpected := none
+      keyHex := none
+      messageHex := none
+  return .ok cases
+
+private def runHmacSuite : IO Bool := do
+  let path := "vectors/nist/HMAC.rsp"
+  let cases ← match parseHmac (← IO.FS.readFile path) with
+    | .ok cases => pure cases
+    | .error message => throw (IO.userError s!"{path}: {message}")
+  if cases.size != 1275 then
+    IO.eprintln s!"FAILED HMAC-SHA-2: parsed {cases.size} cases; expected 1275"
+    return false
+  let mut passed := true
+  for test in cases do
+    let actual := (Crypto.HMAC.compute test.algorithm test.key test.input).toByteArray
+      |>.extract 0 test.tagBytes
+    if actual != test.expected then
+      IO.eprintln (s!"FAILED {test.algorithm.name} official vector " ++
+        s!"(key bytes {test.key.size}, tag bytes {test.tagBytes})")
+      passed := false
+  if passed then IO.println s!"✓ HMAC-SHA-2: {cases.size} official vectors"
+  return passed
+
 /-- Run all vendored byte-oriented NIST CAVP suites. -/
 def run : IO Bool := do
   IO.println "\n=== Vendored NIST CAVP response files ==="
   let results ← suites.mapM runSuite
-  return results.all (· == true)
+  let hmacResult ← runHmacSuite
+  return results.all (· == true) && hmacResult
 
 end CryptoValidation.OfficialVectors

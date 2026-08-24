@@ -3,11 +3,15 @@ Copyright (c) 2025 Kim Morrison. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Kim Morrison
 -/
+module
 
-import Crypto.SHA2.Constants
-import Crypto.SHA2.Primitives
-import Crypto.SHA2.Padding
-import Crypto.Hash.Streaming
+
+public import Crypto.SHA2.Constants
+public import Crypto.SHA2.Primitives
+public import Crypto.SHA2.Padding
+public import Crypto.Hash.Streaming
+
+public section
 
 /-! # SHA-2 Core Implementation
 
@@ -86,11 +90,11 @@ def compressBlock (H : Vector UInt32 8) (block : Vector UInt32 16) : Vector UInt
     H[4] + e, H[5] + f, H[6] + g, H[7] + h]
 
 /-- Incremental SHA-224/SHA-256 state. -/
-@[ext] structure Context where
-  private state : Vector UInt32 8
-  private buffer : ByteArray
-  private buffer_lt : buffer.size < 64
-  private totalBytes : Nat
+@[ext] public structure Context where
+  state : Vector UInt32 8
+  buffer : ByteArray
+  buffer_lt : buffer.size < 64
+  totalBytes : Nat
 
 namespace Context
 
@@ -102,6 +106,10 @@ def update (ctx : Context) (input : ByteArray) : Context :=
     (fun state block => compressBlock state (bytesToBlock block))
     ctx.state ctx.buffer input ctx.buffer_lt
   ⟨result.state, result.buffer, result.buffer_lt, ctx.totalBytes + input.size⟩
+
+@[simp] theorem update_empty (ctx : Context) : ctx.update ByteArray.empty = ctx := by
+  cases ctx
+  simp [update]
 
 theorem update_append (ctx : Context) (left right : ByteArray) :
     (ctx.update left).update right = ctx.update (left ++ right) := by
@@ -205,11 +213,11 @@ def compressBlock (hash : Vector UInt64 8) (block : Vector UInt64 16) : Vector U
     hash[4] + e, hash[5] + f, hash[6] + g, hash[7] + h]
 
 /-- Incremental SHA-384/SHA-512 state. -/
-@[ext] structure Context where
-  private state : Vector UInt64 8
-  private buffer : ByteArray
-  private buffer_lt : buffer.size < 128
-  private totalBytes : Nat
+@[ext] public structure Context where
+  state : Vector UInt64 8
+  buffer : ByteArray
+  buffer_lt : buffer.size < 128
+  totalBytes : Nat
 
 namespace Context
 
@@ -221,6 +229,10 @@ def update (ctx : Context) (input : ByteArray) : Context :=
     (fun state block => compressBlock state (bytesToBlock block))
     ctx.state ctx.buffer input ctx.buffer_lt
   ⟨result.state, result.buffer, result.buffer_lt, ctx.totalBytes + input.size⟩
+
+@[simp] theorem update_empty (ctx : Context) : ctx.update ByteArray.empty = ctx := by
+  cases ctx
+  simp [update]
 
 theorem update_append (ctx : Context) (left right : ByteArray) :
     (ctx.update left).update right = ctx.update (left ++ right) := by

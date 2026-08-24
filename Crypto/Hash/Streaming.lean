@@ -1,15 +1,19 @@
-import Crypto.ByteVector
+module
+
+public import Crypto.ByteVector
+
+@[expose] public section
 
 namespace Crypto.Hash.Internal
 
 variable {State : Type}
 
-structure BlockUpdateResult (State : Type) (blockSize : Nat) where
+public structure BlockUpdateResult (State : Type) (blockSize : Nat) where
   state : State
   buffer : ByteArray
   buffer_lt : buffer.size < blockSize
 
-private def absorbByte (blockSize : Nat) (blockSize_pos : 0 < blockSize)
+def absorbByte (blockSize : Nat) (blockSize_pos : 0 < blockSize)
     (process : State → Crypto.ByteVector blockSize → State)
     (current : BlockUpdateResult State blockSize) (byte : UInt8) :
     BlockUpdateResult State blockSize :=
@@ -33,6 +37,12 @@ def updateBuffered (blockSize : Nat) (blockSize_pos : 0 < blockSize)
     BlockUpdateResult State blockSize :=
   input.data.foldl (absorbByte blockSize blockSize_pos process)
     ⟨initial, buffer, buffer_lt⟩
+
+@[simp] theorem updateBuffered_empty (blockSize : Nat) (blockSize_pos : 0 < blockSize)
+    (process : State → Crypto.ByteVector blockSize → State) (initial : State)
+    (buffer : ByteArray) (buffer_lt : buffer.size < blockSize) :
+    updateBuffered blockSize blockSize_pos process initial buffer ByteArray.empty buffer_lt =
+      ⟨initial, buffer, buffer_lt⟩ := rfl
 
 theorem updateBuffered_append (blockSize : Nat) (blockSize_pos : 0 < blockSize)
     (process : State → Crypto.ByteVector blockSize → State) (initial : State)

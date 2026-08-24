@@ -3,13 +3,19 @@ Copyright (c) 2025 Kim Morrison. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Kim Morrison
 -/
+module
+
+public import Crypto.Hex
+
+@[expose] public section
+
 
 /-! # Statically sized byte arrays -/
 
 namespace Crypto
 
 /-- A contiguous byte array whose length is carried by its type. -/
-structure ByteVector (size : Nat) where
+public structure ByteVector (size : Nat) where
   bytes : ByteArray
   size_eq : bytes.size = size
 
@@ -30,10 +36,12 @@ def get (value : ByteVector n) (i : Fin n) : UInt8 :=
   value.bytes[i.val]'(by rw [value.size_eq]; exact i.isLt)
 
 def toHex (value : ByteVector n) : String :=
-  String.ofList <| value.bytes.data.toList.flatMap fun byte =>
-    let digit (x : Nat) := if x < 10 then Char.ofNat ('0'.toNat + x)
-      else Char.ofNat ('a'.toNat + x - 10)
-    [digit (byte.toNat >>> 4), digit (byte.toNat &&& 15)]
+  Crypto.Hex.encode value.bytes
+
+/-- Decode exactly `size` bytes of strict hexadecimal. -/
+def ofHex? (size : Nat) (input : String) : Option (ByteVector size) := do
+  let bytes ← Crypto.Hex.decode? input
+  if h : bytes.size = size then some ⟨bytes, h⟩ else none
 
 def ofBitVec {n : Nat} (bits : BitVec (n * 8)) : ByteVector n :=
   let bytes := ByteArray.mk <| Array.ofFn fun i : Fin n =>
@@ -105,14 +113,10 @@ instance : Repr (ByteVector n) where
   · exact fun h => congrArg (fun value => value.bytes.data) h
 
 theorem length_toHex (value : ByteVector n) : value.toHex.length = n * 2 := by
-  have hlen : value.bytes.data.toList.length = n := by
-    calc
-      value.bytes.data.toList.length = value.bytes.data.size := Array.length_toList
-      _ = value.bytes.size := rfl
-      _ = n := value.size_eq
-  simp [toHex]
-  rw [List.map_const']
-  simp [hlen]
+  simp [toHex, value.size_eq]
+
+@[simp] theorem ofHex?_toHex (value : ByteVector n) : ofHex? n value.toHex = some value := by
+  simp [ofHex?, toHex, value.size_eq]
 
 end ByteVector
 end Crypto

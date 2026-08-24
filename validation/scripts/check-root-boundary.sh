@@ -28,12 +28,26 @@ if find . -path './.git' -prune -o -path './.lake' -prune -o -path './validation
   exit 1
 fi
 
-if grep -nE '^import Crypto\.CLI[[:space:]]*$' Crypto.lean ||
+if grep -nE '^(public[[:space:]]+)?import Crypto\.CLI[[:space:]]*$' Crypto.lean ||
     find Crypto -type f -name '*.lean' ! -path 'Crypto/CLI.lean' \
-      -exec grep -nHE '^import Crypto\.CLI[[:space:]]*$' {} +; then
+      -exec grep -nHE '^(public[[:space:]]+)?import Crypto\.CLI[[:space:]]*$' {} +; then
   echo 'import Crypto unexpectedly pulls in the CLI' >&2
   exit 1
 fi
+
+if grep -nE '^public import Crypto\.(MD5|SHA1|SHA2|SHA3)(\.|[[:space:]]|$)' \
+    Crypto.lean Crypto/Hash.lean; then
+  echo 'public API imports an implementation module transitively' >&2
+  exit 1
+fi
+
+while IFS= read -r source; do
+  if ! grep -Eq '^[[:space:]]*module[[:space:]]*$' "$source"; then
+    echo "Lean source is missing a module declaration: $source" >&2
+    exit 1
+  fi
+done < <(find . -path './.git' -prune -o -path './.lake' -prune -o \
+  -path './validation/.lake' -prune -o -type f -name '*.lean' -print)
 
 if grep -REn 'buffer[[:space:]]*\+\+[[:space:]]*input|def[[:space:]]+toBlocks' Crypto; then
   echo 'streaming implementation aggregates an update before compression' >&2

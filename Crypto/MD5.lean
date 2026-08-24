@@ -3,10 +3,14 @@ Copyright (c) 2025 Kim Morrison. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Kim Morrison
 -/
+module
 
-import Crypto.MD5.Constants
-import Crypto.Lean.UInt
-import Crypto.Hash.Streaming
+
+public import Crypto.MD5.Constants
+public import Crypto.Lean.UInt
+public import Crypto.Hash.Streaming
+
+public section
 
 /-!
 # MD5
@@ -77,11 +81,11 @@ private def processBlock (state : MD5State) (block : Vector UInt32 16) : MD5Stat
   state + Fin.foldl 4 (doRound block) state
 
 /-- Incremental MD5 state. The buffered suffix is always shorter than one block. -/
-@[ext] structure Context where
-  private state : MD5State
-  private buffer : ByteArray
-  private buffer_lt : buffer.size < 64
-  private totalBytes : Nat
+@[ext] public structure Context where
+  state : MD5State
+  buffer : ByteArray
+  buffer_lt : buffer.size < 64
+  totalBytes : Nat
 
 namespace Context
 
@@ -94,6 +98,10 @@ def update (ctx : Context) (input : ByteArray) : Context :=
     (fun state block => processBlock state (bytesToBlock block))
     ctx.state ctx.buffer input ctx.buffer_lt
   ⟨result.state, result.buffer, result.buffer_lt, ctx.totalBytes + input.size⟩
+
+@[simp] theorem update_empty (ctx : Context) : ctx.update ByteArray.empty = ctx := by
+  cases ctx
+  simp [update]
 
 theorem update_append (ctx : Context) (left right : ByteArray) :
     (ctx.update left).update right = ctx.update (left ++ right) := by

@@ -1,4 +1,5 @@
 name = "lean-crypto-hash"
+requiresModuleSystem = true
 leanOptions = { autoImplicit = false, relaxedAutoImplicit = false, warningAsError = true }
 defaultTargets = ["Crypto", "test", "md5sum", "sha1sum", "sha224sum", "sha256sum", "sha384sum", "sha512sum", "sha3_224sum", "sha3_256sum", "sha3_384sum", "sha3_512sum", "shake128sum", "shake256sum"]
 testRunner = "test"
@@ -62,4 +63,3 @@ root = "shake128sum"
 [[lean_exe]]
 name = "shake256sum"
 root = "shake256sum"
-
