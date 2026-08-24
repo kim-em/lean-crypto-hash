@@ -62,7 +62,7 @@ def parseChecksumLine (algName : String) (line : String) : Option (String × Str
   if line.startsWith s!"{algName} (" then
     let parts := line.splitOn ") = "
     if parts.length == 2 then
-      let filename := (parts[0]!).drop (algName.length + 2)  -- Remove "ALG ("
+      let filename := (parts[0]!).drop (algName.length + 2) |>.toString  -- Remove "ALG ("
       let hash := parts[1]!
       some (hash, filename, false)  -- text mode for BSD style
     else
@@ -74,7 +74,7 @@ def parseChecksumLine (algName : String) (line : String) : Option (String × Str
       let hash := parts[0]!
       let rest := String.join (parts.drop 1 |>.intersperse "  ")
       if rest.startsWith "*" then
-        some (hash, rest.drop 1, true)  -- binary mode
+        some (hash, (rest.drop 1).toString, true)  -- binary mode
       else
         some (hash, rest, false)  -- text mode
     else
@@ -108,7 +108,7 @@ def runCheckMode (algo : HashAlgorithm) (files : List String) (opts : SHASumOpti
   for file in files do
     try
       let content ← IO.FS.readFile file
-      let lines := content.splitOn "\n" |>.filter (fun line => line.trim != "")
+      let lines := content.splitOn "\n" |>.filter (!·.trimAscii.isEmpty)
 
       for line in lines do
         match parseChecksumLine algo.name line with

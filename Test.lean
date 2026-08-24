@@ -36,11 +36,11 @@ def findSystemCommand (cmd : String) : IO (Option String) := do
       args := #["-a", cmd]  -- Show all matches
     } ""
 
-    let paths := whichOutput.trim.splitOn "\n"
+    let paths := whichOutput.trimAscii.toString.splitOn "\n"
     -- Find the first path that doesn't contain ".lake" (our build directory)
     for path in paths do
-      if path.trim != "" && !(path.splitOn ".lake").length > 1 then
-        return some path.trim
+      if path.trimAscii.toString != "" && !(path.splitOn ".lake").length > 1 then
+        return some path.trimAscii.toString
     return none
   catch _ =>
     return none
@@ -54,7 +54,7 @@ def getSystemHashSum (hashCommand : String) (input : String) : IO String := do
       cmd := path
       args := #[]
     } input
-    return output.trim
+    return output.trimAscii.toString
   | none => throw (IO.userError s!"System {hashCommand} command not found")
 
 def getSystemMD5Sum (input : String) : IO String :=
@@ -67,7 +67,7 @@ def getSystemSHA3Sum (variant : String) (input : String) : IO String := do
     args := #["dgst", s!"-sha3-{variant}"]
   } input
   -- OpenSSL output format: "SHA3-256(stdin)= hash"
-  let parts := output.trim.splitOn "= "
+  let parts := output.trimAscii.toString.splitOn "= "
   if parts.length >= 2 then
     return parts[1]!
   else
@@ -79,7 +79,7 @@ def getSystemSHAKESum (variant : String) (length : Nat) (input : String) : IO St
     args := #["dgst", s!"-shake{variant}", "-xoflen", toString length]
   } input
   -- OpenSSL output format: "SHAKE-128(stdin)= hash"
-  let parts := output.trim.splitOn "= "
+  let parts := output.trimAscii.toString.splitOn "= "
   if parts.length >= 2 then
     return parts[1]!
   else
@@ -116,8 +116,8 @@ def testHashSumCore (toolName : String) (ourArgs : Array String) (systemArgs : A
       args := systemArgs
     } input
 
-    let ourResult := ourCLI.trim
-    let systemResult := systemOutput.trim
+    let ourResult := ourCLI.trimAscii.toString
+    let systemResult := systemOutput.trimAscii.toString
     let success := ourResult == systemResult
 
     if success then
@@ -194,7 +194,7 @@ def testSHA3_224WithSystem (input : String) (description : String) : IO Bool := 
     args := #["dgst", "-sha3-224"]
   } input
   -- OpenSSL output format: "SHA3-224(stdin)= hash"
-  let parts := systemOutput.trim.splitOn "= "
+  let parts := systemOutput.trimAscii.toString.splitOn "= "
   if parts.length >= 2 then
     let systemResult := parts[1]!
     let success := ourResult == systemResult
@@ -213,7 +213,7 @@ def testSHA3_256WithSystem (input : String) (description : String) : IO Bool := 
     cmd := "openssl"
     args := #["dgst", "-sha3-256"]
   } input
-  let parts := systemOutput.trim.splitOn "= "
+  let parts := systemOutput.trimAscii.toString.splitOn "= "
   if parts.length >= 2 then
     let systemResult := parts[1]!
     let success := ourResult == systemResult
@@ -232,7 +232,7 @@ def testSHA3_384WithSystem (input : String) (description : String) : IO Bool := 
     cmd := "openssl"
     args := #["dgst", "-sha3-384"]
   } input
-  let parts := systemOutput.trim.splitOn "= "
+  let parts := systemOutput.trimAscii.toString.splitOn "= "
   if parts.length >= 2 then
     let systemResult := parts[1]!
     let success := ourResult == systemResult
@@ -251,7 +251,7 @@ def testSHA3_512WithSystem (input : String) (description : String) : IO Bool := 
     cmd := "openssl"
     args := #["dgst", "-sha3-512"]
   } input
-  let parts := systemOutput.trim.splitOn "= "
+  let parts := systemOutput.trimAscii.toString.splitOn "= "
   if parts.length >= 2 then
     let systemResult := parts[1]!
     let success := ourResult == systemResult
@@ -279,11 +279,11 @@ def testSHA3SumAgainstOpenSSL (tool : String) (opensslVariant : String) (input :
   } input
 
   -- Extract hash from OpenSSL output (format: "SHA3-256(stdin)= hash")
-  let opensslParts := opensslOutput.trim.splitOn "= "
+  let opensslParts := opensslOutput.trimAscii.toString.splitOn "= "
   if opensslParts.length >= 2 then
     let opensslHash := opensslParts[1]!
     let expectedCLIOutput := s!"{opensslHash}  -"
-    let ourResult := ourCLI.trim
+    let ourResult := ourCLI.trimAscii.toString
     let success := ourResult == expectedCLIOutput
     
     if success then
@@ -357,12 +357,12 @@ def compareSHACommand (tool : String) (args : Array String) (input : String) (de
       args := args
     } input
 
-    let success := ourResult.trim == systemResult.trim
+    let success := ourResult.trimAscii.toString == systemResult.trimAscii.toString
 
     let message := if success then
-      s!"✓ {tool} {description}: {ourResult.trim}"
+      s!"✓ {tool} {description}: {ourResult.trimAscii.toString}"
     else
-      s!"✗ {tool} {description}: expected '{systemResult.trim}', got '{ourResult.trim}'"
+      s!"✗ {tool} {description}: expected '{systemResult.trimAscii.toString}', got '{ourResult.trimAscii.toString}'"
 
     return (success, message)
   | none =>
@@ -383,12 +383,12 @@ def compareSHACheckCommand (tool : String) (args : Array String) (checksumFile :
       args := args ++ #[checksumFile]
     } ""
 
-    let success := ourResult.trim == systemResult.trim
+    let success := ourResult.trimAscii.toString == systemResult.trimAscii.toString
 
     let message := if success then
       s!"✓ {tool} {description}: exact match with system"
     else
-      s!"✗ {tool} {description}: expected '{systemResult.trim}', got '{ourResult.trim}'"
+      s!"✗ {tool} {description}: expected '{systemResult.trimAscii.toString}', got '{ourResult.trimAscii.toString}'"
 
     return (success, message)
   | none =>
@@ -419,7 +419,7 @@ def testSHACheckMode (tool : String) (filename : String) : IO (Bool × String) :
     } ""
 
     -- Extract hash from system output (format: "hash  filename")
-    let hashValue := systemOutput.trim.splitOn "  " |>.head!
+    let hashValue := systemOutput.trimAscii.toString.splitOn "  " |>.head!
 
     -- Create a checksum file with the system-generated hash
     let checksumFile := s!"/tmp/{tool}test.sums"
@@ -453,7 +453,7 @@ def testSHABSDCheckMode (tool : String) (filename : String) : IO (Bool × String
     } ""
 
     -- Extract hash from system output (format: "hash  filename")
-    let hashValue := systemOutput.trim.splitOn "  " |>.head!
+    let hashValue := systemOutput.trimAscii.toString.splitOn "  " |>.head!
 
     -- Create a BSD-style checksum file
     let checksumFile := s!"/tmp/{tool}bsd.sums"
@@ -679,7 +679,7 @@ def testBinaryFileHandling : IO Bool := do
       args := #["exe", "sha256sum", binaryFile]
     } ""
     -- Extract hash from output
-    let hash := output.trim.splitOn "  " |>.head!
+    let hash := output.trimAscii.toString.splitOn "  " |>.head!
 
     -- Compare with system sha256sum if available
     let systemCmd ← findSystemCommand "sha256sum"
@@ -689,7 +689,7 @@ def testBinaryFileHandling : IO Bool := do
         cmd := path
         args := #[binaryFile]
       } ""
-      let systemHash := systemOutput.trim.splitOn "  " |>.head!
+      let systemHash := systemOutput.trimAscii.toString.splitOn "  " |>.head!
       let success := hash == systemHash
       if success then
         IO.println s!"✓ Binary file test: {hash}"
