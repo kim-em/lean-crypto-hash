@@ -20,4 +20,4 @@ strong hash functions. SHA3-512 provides 512-bit output with high security.
 -/
 
 def main (args : List String) : IO UInt32 :=
-  runHashSumMain HashAlgorithm.sha3_512 args
+  runHashSumMain Crypto.Hash.Algorithm.sha3_512 args

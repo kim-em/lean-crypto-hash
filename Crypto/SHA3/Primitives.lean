@@ -19,7 +19,7 @@ This module implements the five primitive steps of the Keccak-f[1600] permutatio
 The state is represented as a Vector of 5 rows, each containing 5 UInt64 lanes.
 -/
 
-namespace CryptoHash.SHA3
+namespace Crypto.Hash.Internal.SHA3
 
 -- State type: 5x5 matrix of 64-bit lanes (1600 bits total)
 abbrev KeccakState := Vector (Vector UInt64 5) 5
@@ -44,7 +44,7 @@ def thetaStep (state : KeccakState) : KeccakState := Id.run do
   -- Compute D[x] = C[(x+4)%5] ⊕ ROL(C[(x+1)%5], 1)
   let mut D : Vector UInt64 5 := 0
   for x in List.finRange 5 do
-    D := D.set x (C[x + 4] ^^^ C[x + 1].rotateLeft 1)
+    D := D.set x (C[x + 4] ^^^ UInt64.rotateLeft C[x + 1] 1)
 
   -- Apply D to each lane: state[x,y] ⊕= D[x]
   let mut newState := state
@@ -62,7 +62,7 @@ def rhoStep (state : KeccakState) : KeccakState := Id.run do
     for y in List.finRange 5 do
       let offset := rotationOffsets[y][x]
       let oldValue := state.getLane x y
-      let newValue := oldValue.rotateLeft offset.toNat
+      let newValue := UInt64.rotateLeft oldValue offset.toNat
       newState := newState.setLane x y newValue
   newState
 
@@ -108,4 +108,4 @@ def keccakF1600 (state : KeccakState) : KeccakState := Id.run do
     currentState := iotaStep currentState round
   currentState
 
-end CryptoHash.SHA3
+end Crypto.Hash.Internal.SHA3

@@ -33,4 +33,4 @@ security purposes. This tool is provided for compatibility with legacy systems o
 open Crypto.CLI
 
 def main (args : List String) : IO UInt32 :=
-  runHashSumMain HashAlgorithm.sha1 args
+  runHashSumMain Crypto.Hash.Algorithm.sha1 args

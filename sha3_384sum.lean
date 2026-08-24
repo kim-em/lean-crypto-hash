@@ -20,4 +20,4 @@ strong hash functions. SHA3-384 provides 384-bit output with high security.
 -/
 
 def main (args : List String) : IO UInt32 :=
-  runHashSumMain HashAlgorithm.sha3_384 args
+  runHashSumMain Crypto.Hash.Algorithm.sha3_384 args

@@ -1,4 +1,5 @@
 import Crypto
+import CryptoValidation.Proofs
 
 /-!
 # Downstream validation package

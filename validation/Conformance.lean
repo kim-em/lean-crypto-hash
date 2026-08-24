@@ -7,6 +7,22 @@ Authors: Kim Morrison
 import Crypto
 import CryptoValidation.OfficialVectors
 
+open Crypto.Hash
+
+variable {α β : Type}
+
+private def algorithmTool : Algorithm → String
+  | .md5 => "md5sum"
+  | .sha1 => "sha1sum"
+  | .sha224 => "sha224sum"
+  | .sha256 => "sha256sum"
+  | .sha384 => "sha384sum"
+  | .sha512 => "sha512sum"
+  | .sha3_224 => "sha3_224sum"
+  | .sha3_256 => "sha3_256sum"
+  | .sha3_384 => "sha3_384sum"
+  | .sha3_512 => "sha3_512sum"
+
 /-- Executables are built by the dependency-free root package. -/
 def rootTool (name : String) : String := s!"../.lake/build/bin/{name}"
 
@@ -146,7 +162,7 @@ def testHashSumOption (toolName : String) (args : Array String) (input : String)
 
 -- SHA-512 testing functions
 def testSHA512WithSystem (input : String) (description : String) : IO Bool :=
-  testSHAWithSystem "SHA-512" String.sha512 (getSystemHashSum "sha512sum") input description
+  testSHAWithSystem "SHA-512" (fun input => Crypto.Hash.digestHex .sha512 input.toUTF8) (getSystemHashSum "sha512sum") input description
 
 -- SHA-512Sum CLI test functions
 def testSHA512SumCore (ourArgs : Array String) (systemArgs : Array String) (input : String) (description : String) : IO Bool :=
@@ -192,11 +208,11 @@ def testMD5SumFileOption (filename : String) (args : Array String) (description 
 
 -- SHA-1 testing functions
 def testSHA1WithSystem (input : String) (description : String) : IO Bool :=
-  testSHAWithSystem "SHA-1" String.sha1 (getSystemHashSum "sha1sum") input description
+  testSHAWithSystem "SHA-1" (fun input => Crypto.Hash.digestHex .sha1 input.toUTF8) (getSystemHashSum "sha1sum") input description
 
 -- SHA-3 testing functions
 def testSHA3_224WithSystem (input : String) (description : String) : IO Bool := do
-  let ourResult := input.sha3_224
+  let ourResult := Crypto.Hash.digestHex .sha3_224 input.toUTF8
   let systemOutput ← IO.Process.run {
     cmd := "openssl"
     args := #["dgst", "-sha3-224"]
@@ -216,7 +232,7 @@ def testSHA3_224WithSystem (input : String) (description : String) : IO Bool := 
     return false
 
 def testSHA3_256WithSystem (input : String) (description : String) : IO Bool := do
-  let ourResult := input.sha3_256
+  let ourResult := Crypto.Hash.digestHex .sha3_256 input.toUTF8
   let systemOutput ← IO.Process.run {
     cmd := "openssl"
     args := #["dgst", "-sha3-256"]
@@ -235,7 +251,7 @@ def testSHA3_256WithSystem (input : String) (description : String) : IO Bool := 
     return false
 
 def testSHA3_384WithSystem (input : String) (description : String) : IO Bool := do
-  let ourResult := input.sha3_384
+  let ourResult := Crypto.Hash.digestHex .sha3_384 input.toUTF8
   let systemOutput ← IO.Process.run {
     cmd := "openssl"
     args := #["dgst", "-sha3-384"]
@@ -254,7 +270,7 @@ def testSHA3_384WithSystem (input : String) (description : String) : IO Bool := 
     return false
 
 def testSHA3_512WithSystem (input : String) (description : String) : IO Bool := do
-  let ourResult := input.sha3_512
+  let ourResult := Crypto.Hash.digestHex .sha3_512 input.toUTF8
   let systemOutput ← IO.Process.run {
     cmd := "openssl"
     args := #["dgst", "-sha3-512"]
@@ -330,11 +346,11 @@ def testSHA1SumFileOption (filename : String) (args : Array String) (description
 
 -- SHA-256 testing functions
 def testSHA256WithSystem (input : String) (description : String) : IO Bool :=
-  testSHAWithSystem "SHA-256" String.sha256 (getSystemHashSum "sha256sum") input description
+  testSHAWithSystem "SHA-256" (fun input => Crypto.Hash.digestHex .sha256 input.toUTF8) (getSystemHashSum "sha256sum") input description
 
 -- SHA-224 testing functions
 def testSHA224WithSystem (input : String) (description : String) : IO Bool :=
-  testSHAWithSystem "SHA-224" String.sha224 (getSystemHashSum "sha224sum") input description
+  testSHAWithSystem "SHA-224" (fun input => Crypto.Hash.digestHex .sha224 input.toUTF8) (getSystemHashSum "sha224sum") input description
 
 -- SHA-256Sum CLI test functions
 def testSHA256SumCore (ourArgs : Array String) (systemArgs : Array String) (input : String) (description : String) : IO Bool :=
@@ -530,7 +546,7 @@ def testSHAFileInput (tool : String) (filename : String) (content : String) : IO
 
 
 def testMD5WithSystem (input : String) (description : String) : IO Bool := do
-  let ourResult := input.md5
+  let ourResult := Crypto.Hash.digestHex .md5 input.toUTF8
   let systemOutput ← getSystemMD5Sum input
   -- Extract just the hash part from md5sum output (format: "hash  filename")
   let systemResult := systemOutput.splitOn "  " |>.head!
@@ -543,63 +559,63 @@ def testMD5WithSystem (input : String) (description : String) : IO Bool := do
 
 
 -- List of all SHA algorithms to test
-def shaAlgorithms : List HashAlgorithm := [
-  HashAlgorithm.sha256,
-  HashAlgorithm.sha224,
-  HashAlgorithm.sha384,
-  HashAlgorithm.sha512
+def shaAlgorithms : List Algorithm := [
+  Algorithm.sha256,
+  Algorithm.sha224,
+  Algorithm.sha384,
+  Algorithm.sha512
 ]
 
 -- NIST Test Vectors for Cryptographic Algorithm Validation
 -- Source: NIST CAVP - Cryptographic Algorithm Validation Program
 -- These are official test vectors from FIPS 180-4 validation
-def nistTestVectors : List (HashAlgorithm × String × String × String) := [
+def nistTestVectors : List (Algorithm × String × String × String) := [
   -- SHA-256 NIST Test Vectors (ShortMsg)
-  (HashAlgorithm.sha256, "Empty message", "", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
-  (HashAlgorithm.sha256, "Single byte 'a'", "a", "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb"),
-  (HashAlgorithm.sha256, "String 'abc'", "abc", "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"),
-  (HashAlgorithm.sha256, "NIST Long test", "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq", "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1"),
-  (HashAlgorithm.sha256, "Million 'a' characters", String.join (List.replicate 1000000 "a"), "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0"),
+  (Algorithm.sha256, "Empty message", "", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
+  (Algorithm.sha256, "Single byte 'a'", "a", "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb"),
+  (Algorithm.sha256, "String 'abc'", "abc", "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"),
+  (Algorithm.sha256, "NIST Long test", "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq", "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1"),
+  (Algorithm.sha256, "Million 'a' characters", String.join (List.replicate 1000000 "a"), "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0"),
 
   -- SHA-224 NIST Test Vectors
-  (HashAlgorithm.sha224, "Empty message", "", "d14a028c2a3a2bc9476102bb288234c415a2b01f828ea62ac5b3e42f"),
-  (HashAlgorithm.sha224, "Single byte 'a'", "a", "abd37534c7d9a2efb9465de931cd7055ffdb8879563ae98078d6d6d5"),
-  (HashAlgorithm.sha224, "String 'abc'", "abc", "23097d223405d8228642a477bda255b32aadbce4bda0b3f7e36c9da7"),
-  (HashAlgorithm.sha224, "NIST Long test", "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq", "75388b16512776cc5dba5da1fd890150b0c6455cb4f58b1952522525"),
-  (HashAlgorithm.sha224, "Million 'a' characters", String.join (List.replicate 1000000 "a"), "20794655980c91d8bbb4c1ea97618a4bf03f42581948b2ee4ee7ad67"),
+  (Algorithm.sha224, "Empty message", "", "d14a028c2a3a2bc9476102bb288234c415a2b01f828ea62ac5b3e42f"),
+  (Algorithm.sha224, "Single byte 'a'", "a", "abd37534c7d9a2efb9465de931cd7055ffdb8879563ae98078d6d6d5"),
+  (Algorithm.sha224, "String 'abc'", "abc", "23097d223405d8228642a477bda255b32aadbce4bda0b3f7e36c9da7"),
+  (Algorithm.sha224, "NIST Long test", "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq", "75388b16512776cc5dba5da1fd890150b0c6455cb4f58b1952522525"),
+  (Algorithm.sha224, "Million 'a' characters", String.join (List.replicate 1000000 "a"), "20794655980c91d8bbb4c1ea97618a4bf03f42581948b2ee4ee7ad67"),
 
   -- SHA-384 NIST Test Vectors
-  (HashAlgorithm.sha384, "Empty message", "", "38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b"),
-  (HashAlgorithm.sha384, "Single byte 'a'", "a", "54a59b9f22b0b80880d8427e548b7c23abd873486e1f035dce9cd697e85175033caa88e6d57bc35efae0b5afd3145f31"),
-  (HashAlgorithm.sha384, "String 'abc'", "abc", "cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7"),
-  (HashAlgorithm.sha384, "NIST Long test", "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq", "3391fdddfc8dc7393707a65b1b4709397cf8b1d162af05abfe8f450de5f36bc6b0455a8520bc4e6f5fe95b1fe3c8452b"),
-  (HashAlgorithm.sha384, "Million 'a' characters", String.join (List.replicate 1000000 "a"), "9d0e1809716474cb086e834e310a4a1ced149e9c00f248527972cec5704c2a5b07b8b3dc38ecc4ebae97ddd87f3d8985"),
+  (Algorithm.sha384, "Empty message", "", "38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b"),
+  (Algorithm.sha384, "Single byte 'a'", "a", "54a59b9f22b0b80880d8427e548b7c23abd873486e1f035dce9cd697e85175033caa88e6d57bc35efae0b5afd3145f31"),
+  (Algorithm.sha384, "String 'abc'", "abc", "cb00753f45a35e8bb5a03d699ac65007272c32ab0eded1631a8b605a43ff5bed8086072ba1e7cc2358baeca134c825a7"),
+  (Algorithm.sha384, "NIST Long test", "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq", "3391fdddfc8dc7393707a65b1b4709397cf8b1d162af05abfe8f450de5f36bc6b0455a8520bc4e6f5fe95b1fe3c8452b"),
+  (Algorithm.sha384, "Million 'a' characters", String.join (List.replicate 1000000 "a"), "9d0e1809716474cb086e834e310a4a1ced149e9c00f248527972cec5704c2a5b07b8b3dc38ecc4ebae97ddd87f3d8985"),
 
   -- SHA-512 NIST Test Vectors
-  (HashAlgorithm.sha512, "Empty message", "", "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e"),
-  (HashAlgorithm.sha512, "Single byte 'a'", "a", "1f40fc92da241694750979ee6cf582f2d5d7d28e18335de05abc54d0560e0f5302860c652bf08d560252aa5e74210546f369fbbbce8c12cfc7957b2652fe9a75"),
-  (HashAlgorithm.sha512, "String 'abc'", "abc", "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f"),
-  (HashAlgorithm.sha512, "NIST Long test", "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq", "204a8fc6dda82f0a0ced7beb8e08a41657c16ef468b228a8279be331a703c33596fd15c13b1b07f9aa1d3bea57789ca031ad85c7a71dd70354ec631238ca3445"),
-  (HashAlgorithm.sha512, "Million 'a' characters", String.join (List.replicate 1000000 "a"), "e718483d0ce769644e2e42c7bc15b4638e1f98b13b2044285632a803afa973ebde0ff244877ea60a4cb0432ce577c31beb009c5c2c49aa2e4eadb217ad8cc09b")
+  (Algorithm.sha512, "Empty message", "", "cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e"),
+  (Algorithm.sha512, "Single byte 'a'", "a", "1f40fc92da241694750979ee6cf582f2d5d7d28e18335de05abc54d0560e0f5302860c652bf08d560252aa5e74210546f369fbbbce8c12cfc7957b2652fe9a75"),
+  (Algorithm.sha512, "String 'abc'", "abc", "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f"),
+  (Algorithm.sha512, "NIST Long test", "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq", "204a8fc6dda82f0a0ced7beb8e08a41657c16ef468b228a8279be331a703c33596fd15c13b1b07f9aa1d3bea57789ca031ad85c7a71dd70354ec631238ca3445"),
+  (Algorithm.sha512, "Million 'a' characters", String.join (List.replicate 1000000 "a"), "e718483d0ce769644e2e42c7bc15b4638e1f98b13b2044285632a803afa973ebde0ff244877ea60a4cb0432ce577c31beb009c5c2c49aa2e4eadb217ad8cc09b")
 ]
 
 -- Extremely Long Test Vectors (WARNING: These are very slow!)
 -- Only run with --long flag due to computational cost
-def nistExtremelyLongTestVectors : List (HashAlgorithm × String × String × String) := [
+def nistExtremelyLongTestVectors : List (Algorithm × String × String × String) := [
   -- Extremely long message: 64-character string repeated 16,777,216 times (~1GB)
   -- Note: These tests can take several minutes to complete
-  (HashAlgorithm.sha256, "Gigabyte message test",
+  (Algorithm.sha256, "Gigabyte message test",
    String.join (List.replicate 16777216 "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmno"),
    "50e72a0e26442fe2552dc3938ac58658228c0cbfb1d2ca872ae435266fcd055e")
 ]
 
 -- Run a set of NIST test vectors with a given title
-def runNISTTestSet (title : String) (testVectors : List (HashAlgorithm × String × String × String)) : IO Bool := do
+def runNISTTestSet (title : String) (testVectors : List (Algorithm × String × String × String)) : IO Bool := do
   IO.println s!"\n=== {title} ==="
 
   let mut allPassed := true
   for (algo, description, input, expectedHash) in testVectors do
-    let ourHash := String.hashWith algo input
+    let ourHash := Crypto.Hash.digestHex algo input.toUTF8
     let success := ourHash == expectedHash
     if success then
       IO.println s!"✓ NIST {algo.name} - {description}: PASS"
@@ -623,42 +639,44 @@ def runNISTExtremeTests : IO Bool := do
   runNISTTestSet "NIST Extremely Long Message Tests (~1GB)" nistExtremelyLongTestVectors
 
 -- Run basic algorithm tests for a single SHA algorithm
-def runSHAAlgorithmTests (algo : HashAlgorithm) (testCases : List (String × String)) : IO (List Bool) := do
-  let available ← isCommandAvailable algo.tool
+def runSHAAlgorithmTests (algo : Algorithm) (testCases : List (String × String)) : IO (List Bool) := do
+  let available ← isCommandAvailable (algorithmTool algo)
   if available then do
-    IO.println s!"\n=== Testing {algo.name} algorithm against system {algo.tool} ==="
-    parallelMapM (testCases.map (fun (input, description) => testSHAWithSystem algo.name (String.hashWith algo) (getSystemHashSum algo.tool) input description))
+    IO.println s!"\n=== Testing {algo.name} algorithm against system {algorithmTool algo} ==="
+    parallelMapM (testCases.map (fun (input, description) => testSHAWithSystem algo.name
+      (fun text => Crypto.Hash.digestHex algo text.toUTF8)
+      (getSystemHashSum (algorithmTool algo)) input description))
   else do
-    IO.println s!"\n⚠️  System {algo.tool} not available - skipping {algo.name} algorithm tests"
+    IO.println s!"\n⚠️  System {algorithmTool algo} not available - skipping {algo.name} algorithm tests"
     return []
 
 -- Run basic CLI tests for a single SHA algorithm
-def runSHABasicCLITests (algo : HashAlgorithm) : IO (List Bool) := do
-  let available ← isCommandAvailable algo.tool
+def runSHABasicCLITests (algo : Algorithm) : IO (List Bool) := do
+  let available ← isCommandAvailable (algorithmTool algo)
   if available then do
     IO.println s!"\n=== Testing {algo.name}Sum CLI ==="
     let results ← parallelMapM [
-      testHashSum algo.tool "" "stdin empty",
-      testHashSum algo.tool "abc" "stdin simple",
-      testHashSum algo.tool "hello world" "stdin with space"
+      testHashSum (algorithmTool algo) "" "stdin empty",
+      testHashSum (algorithmTool algo) "abc" "stdin simple",
+      testHashSum (algorithmTool algo) "hello world" "stdin with space"
     ]
     IO.println s!"=== End {algo.name}Sum CLI tests ==="
     return results
   else do
-    IO.println s!"\n⚠️  System {algo.tool} not available - skipping {algo.name}Sum CLI tests"
+    IO.println s!"\n⚠️  System {algorithmTool algo} not available - skipping {algo.name}Sum CLI tests"
     return []
 
 -- Run comprehensive CLI option tests for a single SHA algorithm
-def runSHAComprehensiveCLITests (algo : HashAlgorithm) : IO (List Bool × List String) := do
-  let available ← isCommandAvailable algo.tool
+def runSHAComprehensiveCLITests (algo : Algorithm) : IO (List Bool × List String) := do
+  let available ← isCommandAvailable (algorithmTool algo)
   if available then do
     let testsAndMessages ← parallelMapM [
-      testSHATagOption algo.tool "abc" "tag option",
-      testSHABinaryOption algo.tool "abc" "binary option",
-      testSHAZeroOption algo.tool "abc" "zero option",
-      testSHAFileInput algo.tool (tempFile s!"{algo.tool}_file_test.txt") "test content",
-      testSHACheckMode algo.tool (tempFile s!"{algo.tool}_check_test.txt"),
-      testSHABSDCheckMode algo.tool (tempFile s!"{algo.tool}_bsd_test.txt")
+      testSHATagOption (algorithmTool algo) "abc" "tag option",
+      testSHABinaryOption (algorithmTool algo) "abc" "binary option",
+      testSHAZeroOption (algorithmTool algo) "abc" "zero option",
+      testSHAFileInput (algorithmTool algo) (tempFile s!"{algorithmTool algo}_file_test.txt") "test content",
+      testSHACheckMode (algorithmTool algo) (tempFile s!"{algorithmTool algo}_check_test.txt"),
+      testSHABSDCheckMode (algorithmTool algo) (tempFile s!"{algorithmTool algo}_bsd_test.txt")
     ]
 
     -- Print results in order
@@ -669,7 +687,7 @@ def runSHAComprehensiveCLITests (algo : HashAlgorithm) : IO (List Bool × List S
     let messages := testsAndMessages.map (·.2)
     return (results, messages)
   else do
-    let message := s!"⚠️  System {algo.tool} not available - skipping {algo.name} comprehensive CLI tests"
+    let message := s!"⚠️  System {algorithmTool algo} not available - skipping {algo.name} comprehensive CLI tests"
     IO.println message
     return ([], [message])
 
@@ -819,8 +837,8 @@ def runTests (args : List String := []) : IO Unit := do
   -- First create checksum files
   let content1 ← IO.FS.readFile md5File1
   let content2 ← IO.FS.readFile md5File2
-  let hash1 := content1.md5
-  let hash2 := content2.md5
+  let hash1 := Crypto.Hash.digestHex .md5 content1.toUTF8
+  let hash2 := Crypto.Hash.digestHex .md5 content2.toUTF8
   IO.FS.writeFile md5Checksums s!"{hash1}  {md5File1}\n{hash2}  {md5File2}\n"
   IO.FS.writeFile md5BsdChecksums s!"MD5 ({md5File1}) = {hash1}\nMD5 ({md5File2}) = {hash2}\n"
 
@@ -886,8 +904,8 @@ def runTests (args : List String := []) : IO Unit := do
     -- Create checksums for check mode tests
     let content1 ← IO.FS.readFile sha1File1
     let content2 ← IO.FS.readFile sha1File2
-    let hash1 := content1.sha1
-    let hash2 := content2.sha1
+    let hash1 := Crypto.Hash.digestHex .sha1 content1.toUTF8
+    let hash2 := Crypto.Hash.digestHex .sha1 content2.toUTF8
     IO.FS.writeFile sha1Checksums s!"{hash1}  {sha1File1}\n{hash2}  {sha1File2}\n"
     IO.FS.writeFile sha1BsdChecksums s!"SHA1 ({sha1File1}) = {hash1}\nSHA1 ({sha1File2}) = {hash2}\n"
 

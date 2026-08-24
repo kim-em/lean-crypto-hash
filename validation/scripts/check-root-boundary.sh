@@ -4,6 +4,11 @@ set -euo pipefail
 repo_root=$(cd "$(dirname "$0")/../.." && pwd)
 cd "$repo_root"
 
+if ! cmp -s lean-toolchain validation/lean-toolchain; then
+  echo 'root and downstream lean-toolchain pins differ' >&2
+  exit 1
+fi
+
 if ! grep -Eq '"packages"[[:space:]]*:[[:space:]]*\[[[:space:]]*\]' lake-manifest.json; then
   echo 'root lake-manifest.json contains a package dependency' >&2
   exit 1
@@ -27,6 +32,11 @@ if grep -nE '^import Crypto\.CLI[[:space:]]*$' Crypto.lean ||
     find Crypto -type f -name '*.lean' ! -path 'Crypto/CLI.lean' \
       -exec grep -nHE '^import Crypto\.CLI[[:space:]]*$' {} +; then
   echo 'import Crypto unexpectedly pulls in the CLI' >&2
+  exit 1
+fi
+
+if grep -REn 'buffer[[:space:]]*\+\+[[:space:]]*input|def[[:space:]]+toBlocks' Crypto; then
+  echo 'streaming implementation aggregates an update before compression' >&2
   exit 1
 fi
 

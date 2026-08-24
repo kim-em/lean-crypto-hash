@@ -10,7 +10,7 @@ This module contains all the constants used in the SHA-1 algorithm,
 including the initial hash values and round constants.
 -/
 
-namespace CryptoHash
+namespace Crypto.Hash.Internal
 
 namespace SHA1
 
@@ -22,4 +22,4 @@ def K : Vector UInt32 4 := #v[0x5A827999, 0x6ED9EBA1, 0x8F1BBCDC, 0xCA62C1D6]
 
 end SHA1
 
-end CryptoHash
+end Crypto.Hash.Internal

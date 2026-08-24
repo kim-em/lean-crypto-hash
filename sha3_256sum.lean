@@ -20,4 +20,4 @@ strong hash functions. SHA3-256 provides 256-bit output with high security.
 -/
 
 def main (args : List String) : IO UInt32 :=
-  runHashSumMain HashAlgorithm.sha3_256 args
+  runHashSumMain Crypto.Hash.Algorithm.sha3_256 args

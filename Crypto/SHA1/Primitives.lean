@@ -12,7 +12,7 @@ This module contains the primitive cryptographic functions used in SHA-1,
 including the four main logical functions used in different rounds.
 -/
 
-namespace CryptoHash
+namespace Crypto.Hash.Internal
 
 namespace SHA1
 
@@ -29,4 +29,4 @@ def f (t : Nat) (b c d : UInt32) : UInt32 :=
 
 end SHA1
 
-end CryptoHash
+end Crypto.Hash.Internal

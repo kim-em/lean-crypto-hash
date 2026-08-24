@@ -6,21 +6,20 @@ Authors: Kim Morrison
 
 import Crypto.MD5.Constants
 import Crypto.Lean.UInt
+import Crypto.Hash.Streaming
 
 /-!
 # MD5
 
 This module contains the definitions for the MD5 hash function.
 
-## Main Definitions
-
-- `ByteArray.md5`
-- `String.md5`
+The supported public entry points are in `Crypto.Hash`; declarations in this module are
+implementation details.
 -/
 
 
 
-namespace CryptoHash
+namespace Crypto.Hash.Internal
 
 namespace MD5
 
@@ -31,23 +30,33 @@ private def auxI (b c d : UInt32) : UInt32 := c ^^^ (b ||| ~~~d)
 
 private def padMessageWithLength (msg : ByteArray) (totalBytes : Nat) : ByteArray :=
   let msgLenBits := totalBytes * 8
-  let paddedMsg := msg.push 0x80
-  let targetLen := ((msg.size + 9 + 63) / 64) * 64 - 8
-  let zeroPadLen := targetLen - paddedMsg.size
-  let withZeros := paddedMsg ++ ByteArray.mk (Array.replicate zeroPadLen 0)
+  let zeroPadLen := (64 - ((msg.size + 9) % 64)) % 64
+  let withZeros := msg.push 0x80 ++ ByteArray.mk (Array.replicate zeroPadLen 0)
   let lenBytes := ByteArray.mk (Array.ofFn (fun i : Fin 8 => ((msgLenBits >>> (i.val * 8)) &&& 0xFF).toUInt8))
   withZeros ++ lenBytes
+
+private theorem padMessageWithLength_aligned (msg : ByteArray) (totalBytes : Nat) :
+    (padMessageWithLength msg totalBytes).size % 64 = 0 := by
+  simp only [padMessageWithLength, ByteArray.size_append, ByteArray.size_push]
+  change (msg.size + 1 + (Array.replicate _ _).size + (Array.ofFn _).size) % 64 = 0
+  rw [Array.size_replicate, Array.size_ofFn]
+  omega
+
+private theorem padMessageWithLength_prefix (msg : ByteArray) (totalBytes : Nat) :
+    (padMessageWithLength msg totalBytes).extract 0 msg.size = msg := by
+  rw [ByteArray.ext_iff]
+  simp [padMessageWithLength]
 
 private def bytesToWord (b0 b1 b2 b3 : UInt8) : UInt32 :=
   b0.toUInt32 ||| (b1.toUInt32 <<< 8) ||| (b2.toUInt32 <<< 16) ||| (b3.toUInt32 <<< 24)
 
-private def messageToBlocks (msg : ByteArray) : Array (Vector UInt32 16) :=
-  let blockCount := msg.size / 64
-  Array.ofFn fun i : Fin blockCount =>
-    let blockStart := i.val * 64
-    Vector.ofFn fun j =>
-      let byteStart := blockStart + j.val * 4
-      bytesToWord msg[byteStart] msg[byteStart + 1] msg[byteStart + 2] msg[byteStart + 3]
+private def bytesToBlock (block : Crypto.ByteVector 64) : Vector UInt32 16 :=
+  Vector.ofFn fun j =>
+    let byteStart := j.val * 4
+    bytesToWord (block.get ⟨byteStart, by omega⟩)
+      (block.get ⟨byteStart + 1, by omega⟩)
+      (block.get ⟨byteStart + 2, by omega⟩)
+      (block.get ⟨byteStart + 3, by omega⟩)
 
 abbrev MD5State := Vector UInt32 4
 
@@ -56,7 +65,7 @@ private def md5Round (round : Fin 4) (i : Fin 16) (state : MD5State) (x : UInt32
   let s := shifts[round][Fin.ofNat 4 i]
   let t := md5Constants[round.val * 16 + i.val]
   let temp := state[0] + auxs[round] state[1] state[2] state[3] + x + t
-  let rotated := temp.rotateLeft s
+  let rotated := UInt32.rotateLeft temp s
   #v[state[3], state[1] + rotated, state[1], state[2]]
 
 private def doRound (block : Vector UInt32 16) (state : MD5State) (round : Fin 4) : MD5State :=
@@ -68,76 +77,60 @@ private def processBlock (state : MD5State) (block : Vector UInt32 16) : MD5Stat
   state + Fin.foldl 4 (doRound block) state
 
 /-- Incremental MD5 state. The buffered suffix is always shorter than one block. -/
-structure Context where
+@[ext] structure Context where
   private state : MD5State
   private buffer : ByteArray
+  private buffer_lt : buffer.size < 64
   private totalBytes : Nat
 
 namespace Context
 
 /-- An empty incremental MD5 computation. -/
-def init : Context := ⟨initialState, ByteArray.empty, 0⟩
+def init : Context := ⟨initialState, ByteArray.empty, by decide, 0⟩
 
 /-- Absorb another chunk without retaining already-compressed blocks. -/
 def update (ctx : Context) (input : ByteArray) : Context :=
-  let combined := ctx.buffer ++ input
-  let completeBytes := combined.size / 64 * 64
-  let blocks := messageToBlocks (combined.extract 0 completeBytes)
-  let state := blocks.foldl processBlock ctx.state
-  ⟨state, combined.extract completeBytes combined.size, ctx.totalBytes + input.size⟩
+  let result := Crypto.Hash.Internal.updateBuffered 64 (by decide)
+    (fun state block => processBlock state (bytesToBlock block))
+    ctx.state ctx.buffer input ctx.buffer_lt
+  ⟨result.state, result.buffer, result.buffer_lt, ctx.totalBytes + input.size⟩
+
+theorem update_append (ctx : Context) (left right : ByteArray) :
+    (ctx.update left).update right = ctx.update (left ++ right) := by
+  cases ctx with
+  | mk state buffer buffer_lt totalBytes =>
+    let process := fun state block => processBlock state (bytesToBlock block)
+    let first := Crypto.Hash.Internal.updateBuffered 64 (by decide)
+      process state buffer left buffer_lt
+    let sequential := Crypto.Hash.Internal.updateBuffered 64 (by decide)
+      process first.state first.buffer right first.buffer_lt
+    let combined := Crypto.Hash.Internal.updateBuffered 64 (by decide)
+      process state buffer (left ++ right) buffer_lt
+    have hresult : combined = sequential :=
+      (Crypto.Hash.Internal.updateBuffered_append 64 (by decide)
+        process state buffer left right buffer_lt)
+    change Context.mk sequential.state sequential.buffer sequential.buffer_lt
+      (totalBytes + left.size + right.size) =
+      Context.mk combined.state combined.buffer combined.buffer_lt
+        (totalBytes + (left ++ right).size)
+    apply Context.ext
+    · exact (congrArg Crypto.Hash.Internal.BlockUpdateResult.state hresult).symm
+    · exact (congrArg Crypto.Hash.Internal.BlockUpdateResult.buffer hresult).symm
+    · simp [Nat.add_assoc]
 
 /-- Finish an incremental MD5 computation. -/
 def finalize (ctx : Context) : MD5State :=
-  (messageToBlocks (padMessageWithLength ctx.buffer ctx.totalBytes)).foldl processBlock ctx.state
+  let padded := padMessageWithLength ctx.buffer ctx.totalBytes
+  let result := Crypto.Hash.Internal.updateBuffered 64 (by decide)
+    (fun state block => processBlock state (bytesToBlock block))
+    ctx.state ByteArray.empty padded (by decide)
+  result.state
 
 end Context
 
 def md5Hash (message : ByteArray) : MD5State :=
   (Context.init.update message).finalize
 
-def _root_.UInt32.toHex (w : UInt32) : String :=
-  let bytes := Array.ofFn (fun i : Fin 4 => (w >>> (i.val * 8).toUInt32).toUInt8)
-  let chars := bytes.foldr (fun b acc =>
-    Char.ofUInt8 (b / 16 + if b / 16 < 10 then 48 else 87) ::
-    Char.ofUInt8 (b % 16 + if b % 16 < 10 then 48 else 87) :: acc) []
-  String.ofList chars
-
-def MD5State.toHex (state : MD5State) : String :=
-  state[0].toHex ++ state[1].toHex ++ state[2].toHex ++ state[3].toHex
-
-/-- The MD5 digest bytes in the standard display order. -/
-def MD5State.toByteArray (state : MD5State) : ByteArray := Id.run do
-  let mut result := ByteArray.emptyWithCapacity 16
-  for h : i in [0:4] do
-    let word := state[i]
-    for j in [0:4] do
-      result := result.push (word >>> (j * 8).toUInt32).toUInt8
-  return result
-
-private def UInt32.reverseBytes (w : UInt32) : UInt32 :=
-  let b0 := (w >>> 0) &&& 0xFF
-  let b1 := (w >>> 8) &&& 0xFF
-  let b2 := (w >>> 16) &&& 0xFF
-  let b3 := (w >>> 24) &&& 0xFF
-  (b0 <<< 24) ||| (b1 <<< 16) ||| (b2 <<< 8) ||| b3
-
-def MD5State.toBitVec (state : MD5State) : BitVec 128 :=
-  (UInt32.reverseBytes state[0]).toBitVec ++ (UInt32.reverseBytes state[1]).toBitVec ++ (UInt32.reverseBytes state[2]).toBitVec ++ (UInt32.reverseBytes state[3]).toBitVec
-
 end MD5
 
-end CryptoHash
-
-open CryptoHash MD5
-
-/--
-`ByteArray.md5` computes the MD5 hash of a `ByteArray`.
--/
-def ByteArray.md5 (data : ByteArray) : BitVec 128 :=
-  (MD5.md5Hash data).toBitVec
-
-/--
-`String.md5` computes the MD5 hash of a `String`.
--/
-def String.md5 (s : String) : String :=
-  (MD5.md5Hash s.toUTF8).toHex
+end Crypto.Hash.Internal

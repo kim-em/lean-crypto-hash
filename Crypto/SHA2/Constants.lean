@@ -10,7 +10,7 @@ This module contains all the cryptographic constants used in the SHA-2 family of
 including round constants (K values) and initial hash values (H₀) as specified in FIPS PUB 180-4.
 -/
 
-namespace CryptoHash
+namespace Crypto.Hash.Internal
 
 namespace SHA256
 
@@ -86,4 +86,4 @@ def H0 : Vector UInt64 8 := #v[
 
 end SHA384
 
-end CryptoHash
+end Crypto.Hash.Internal

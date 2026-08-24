@@ -12,35 +12,25 @@ implementing the preprocessing steps as specified in FIPS PUB 180-4.
 
 /-- Message preprocessing for SHA-256 (pad to 512-bit blocks).
 Internal padding function that adds the required padding and length encoding. -/
-def ByteArray.padSHA256WithLength (data : ByteArray) (originalLength : Nat) : ByteArray := Id.run do
-  let mut result := data
-
-  -- Append the '1' bit (0x80 byte)
-  result := result.push 0x80
-
-  -- Pad with zeros until length ≡ 448 (mod 512) bits
-  -- That's 56 bytes (mod 64 bytes since 512 bits = 64 bytes)
-  let targetMod64 := 56
-  while result.size % 64 != targetMod64 do
-    result := result.push 0x00
-
-  -- Append original length in bits as 64-bit big-endian integer
+def ByteArray.padSHA256WithLength (data : ByteArray) (originalLength : Nat) : ByteArray :=
   let lengthInBits := originalLength * 8
-  -- Split into high and low 32-bit words (big-endian)
-  let high32 := (lengthInBits.shiftRight 32).toUInt32
-  let low32 := lengthInBits.toUInt32
+  let zeroBytes := (64 - ((data.size + 9) % 64)) % 64
+  let zeros := ByteArray.mk (Array.replicate zeroBytes 0)
+  let encodedLength := ByteArray.mk <| Array.ofFn fun i : Fin 8 =>
+    (lengthInBits >>> ((7 - i.val) * 8)).toUInt8
+  data.push 0x80 ++ zeros ++ encodedLength
 
-  -- Convert to big-endian bytes
-  result := result.push (high32.shiftRight 24).toUInt8
-  result := result.push (high32.shiftRight 16).toUInt8
-  result := result.push (high32.shiftRight 8).toUInt8
-  result := result.push high32.toUInt8
-  result := result.push (low32.shiftRight 24).toUInt8
-  result := result.push (low32.shiftRight 16).toUInt8
-  result := result.push (low32.shiftRight 8).toUInt8
-  result := result.push low32.toUInt8
+theorem ByteArray.padSHA256WithLength_aligned (data : ByteArray) (originalLength : Nat) :
+    (data.padSHA256WithLength originalLength).size % 64 = 0 := by
+  simp only [ByteArray.padSHA256WithLength, ByteArray.size_append, ByteArray.size_push]
+  change (data.size + 1 + (Array.replicate _ _).size + (Array.ofFn _).size) % 64 = 0
+  rw [Array.size_replicate, Array.size_ofFn]
+  omega
 
-  result
+theorem ByteArray.padSHA256WithLength_prefix (data : ByteArray) (originalLength : Nat) :
+    (data.padSHA256WithLength originalLength).extract 0 data.size = data := by
+  rw [ByteArray.ext_iff]
+  simp [ByteArray.padSHA256WithLength]
 
 /-- Pad a complete SHA-224/SHA-256 input. -/
 def ByteArray.padSHA256 (data : ByteArray) : ByteArray :=
@@ -48,41 +38,25 @@ def ByteArray.padSHA256 (data : ByteArray) : ByteArray :=
 
 /-- Message preprocessing for SHA-512 (1024-bit blocks, 128-bit length encoding).
 Internal padding function that adds required padding and 128-bit length encoding. -/
-def ByteArray.padSHA512WithLength (data : ByteArray) (originalLength : Nat) : ByteArray := Id.run do
-  let mut result := data
-
-  -- Step 1: Append single 1 bit (0x80 byte)
-  result := result.push 0x80
-
-  -- Step 2: Append zeros to make total length ≡ 896 (mod 1024)
-  -- We want final length to be originalLength + 1 + padding + 16 = multiple of 128 bytes
-  -- So padding = 127 - ((originalLength + 1 + 15) % 128)
-  let targetMod := 128 - 16  -- 112 bytes from end (space for 128-bit length)
-  let currentMod := (originalLength + 1) % 128
-  let padding := if currentMod <= targetMod then
-    targetMod - currentMod
-  else
-    128 + targetMod - currentMod
-
-  for _ in [0:padding] do
-    result := result.push 0x00
-
-  -- Step 3: Append original length as 128-bit big-endian integer
+def ByteArray.padSHA512WithLength (data : ByteArray) (originalLength : Nat) : ByteArray :=
   let bitLength := originalLength * 8
-  let highBits : UInt64 := (bitLength.shiftRight 64).toUInt64
-  let lowBits : UInt64 := bitLength.toUInt64
+  let zeroBytes := (128 - ((data.size + 17) % 128)) % 128
+  let zeros := ByteArray.mk (Array.replicate zeroBytes 0)
+  let encodedLength := ByteArray.mk <| Array.ofFn fun i : Fin 16 =>
+    (bitLength >>> ((15 - i.val) * 8)).toUInt8
+  data.push 0x80 ++ zeros ++ encodedLength
 
-  -- Append high 64 bits (big-endian)
-  for i in [0:8] do
-    let byte := (highBits.shiftRight (56 - i * 8).toUInt64).toUInt8
-    result := result.push byte
+theorem ByteArray.padSHA512WithLength_aligned (data : ByteArray) (originalLength : Nat) :
+    (data.padSHA512WithLength originalLength).size % 128 = 0 := by
+  simp only [ByteArray.padSHA512WithLength, ByteArray.size_append, ByteArray.size_push]
+  change (data.size + 1 + (Array.replicate _ _).size + (Array.ofFn _).size) % 128 = 0
+  rw [Array.size_replicate, Array.size_ofFn]
+  omega
 
-  -- Append low 64 bits (big-endian)
-  for i in [0:8] do
-    let byte := (lowBits.shiftRight (56 - i * 8).toUInt64).toUInt8
-    result := result.push byte
-
-  result
+theorem ByteArray.padSHA512WithLength_prefix (data : ByteArray) (originalLength : Nat) :
+    (data.padSHA512WithLength originalLength).extract 0 data.size = data := by
+  rw [ByteArray.ext_iff]
+  simp [ByteArray.padSHA512WithLength]
 
 /-- Pad a complete SHA-384/SHA-512 input. -/
 def ByteArray.padSHA512 (data : ByteArray) : ByteArray :=
