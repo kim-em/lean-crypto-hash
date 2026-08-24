@@ -20,4 +20,4 @@ strong hash functions. SHA3-224 provides 224-bit output with high security.
 -/
 
 def main (args : List String) : IO UInt32 :=
-  runHashSumMain HashAlgorithm.sha3_224 args
+  runHashSumMain Crypto.Hash.Algorithm.sha3_224 args

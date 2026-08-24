@@ -1,6 +1,6 @@
 name = "crypto-validation"
-version = "0.1.0"
-defaultTargets = ["CryptoValidation", "conformance", "official-vectors", "representation-benchmark"]
+leanOptions = { autoImplicit = false, relaxedAutoImplicit = false, warningAsError = true }
+defaultTargets = ["CryptoValidation", "conformance", "official-vectors", "representation-benchmark", "streaming-benchmark"]
 testRunner = "conformance"
 
 [[require]]
@@ -21,3 +21,7 @@ root = "OfficialVectors"
 [[lean_exe]]
 name = "representation-benchmark"
 root = "RepresentationBenchmark"
+
+[[lean_exe]]
+name = "streaming-benchmark"
+root = "StreamingBenchmark"

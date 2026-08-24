@@ -12,35 +12,25 @@ implementing the preprocessing step as specified in FIPS 180-1.
 
 /-- Message preprocessing for SHA-1 (pad to 512-bit blocks).
 Internal padding function that adds the required padding and length encoding. -/
-def ByteArray.padSHA1WithLength (data : ByteArray) (originalLength : Nat) : ByteArray := Id.run do
-  let mut result := data
-
-  -- Append the '1' bit (0x80 byte)
-  result := result.push 0x80
-
-  -- Pad with zeros until length ≡ 448 (mod 512) bits
-  -- That's 56 bytes (mod 64 bytes since 512 bits = 64 bytes)
-  let targetMod64 := 56
-  while result.size % 64 != targetMod64 do
-    result := result.push 0x00
-
-  -- Append original length in bits as 64-bit big-endian integer
+def ByteArray.padSHA1WithLength (data : ByteArray) (originalLength : Nat) : ByteArray :=
   let lengthInBits := originalLength * 8
-  -- Split into high and low 32-bit words (big-endian)
-  let high32 := (lengthInBits.shiftRight 32).toUInt32
-  let low32 := lengthInBits.toUInt32
+  let zeroBytes := (64 - ((data.size + 9) % 64)) % 64
+  let zeros := ByteArray.mk (Array.replicate zeroBytes 0)
+  let encodedLength := ByteArray.mk <| Array.ofFn fun i : Fin 8 =>
+    (lengthInBits >>> ((7 - i.val) * 8)).toUInt8
+  data.push 0x80 ++ zeros ++ encodedLength
 
-  -- Convert to big-endian bytes
-  result := result.push (high32.shiftRight 24).toUInt8
-  result := result.push (high32.shiftRight 16).toUInt8
-  result := result.push (high32.shiftRight 8).toUInt8
-  result := result.push high32.toUInt8
-  result := result.push (low32.shiftRight 24).toUInt8
-  result := result.push (low32.shiftRight 16).toUInt8
-  result := result.push (low32.shiftRight 8).toUInt8
-  result := result.push low32.toUInt8
+theorem ByteArray.padSHA1WithLength_aligned (data : ByteArray) (originalLength : Nat) :
+    (data.padSHA1WithLength originalLength).size % 64 = 0 := by
+  simp only [ByteArray.padSHA1WithLength, ByteArray.size_append, ByteArray.size_push]
+  change (data.size + 1 + (Array.replicate _ _).size + (Array.ofFn _).size) % 64 = 0
+  rw [Array.size_replicate, Array.size_ofFn]
+  omega
 
-  result
+theorem ByteArray.padSHA1WithLength_prefix (data : ByteArray) (originalLength : Nat) :
+    (data.padSHA1WithLength originalLength).extract 0 data.size = data := by
+  rw [ByteArray.ext_iff]
+  simp [ByteArray.padSHA1WithLength]
 
 /-- Pad a complete SHA-1 input. -/
 def ByteArray.padSHA1 (data : ByteArray) : ByteArray :=

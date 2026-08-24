@@ -3,6 +3,7 @@ name: Lean Action CI
 on:
   push:
     branches: [master]
+    tags: ["v4.*"]
   pull_request:
   workflow_dispatch:
 
@@ -19,6 +20,16 @@ jobs:
 
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Check toolchain and rolling-tag policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmp lean-toolchain validation/lean-toolchain
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            expected_tag="${{ github.ref_name }}"
+            toolchain_tag="$(sed 's/.*://' lean-toolchain)"
+            test "$expected_tag" = "$toolchain_tag"
+          fi
       - uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596 # v1
         with:
           build: true

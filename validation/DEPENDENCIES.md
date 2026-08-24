@@ -3,10 +3,11 @@
 The Lean package currently depends only on the repository's root `Crypto`
 package. It does **not** depend on Mathlib.
 
-Lean core/Std already provide the facilities intended for the correctness
-proofs: `UInt32`/`UInt64` to `BitVec` bridges, bit-vector lemmas and
-`bv_decide`, `omega`, `grind`, induction, arrays, and vectors. Missing
-chunking, endian, and fold lemmas will be proved locally.
+Lean core/Std provide the facilities used by the correctness proofs:
+`UInt32`/`UInt64` to `BitVec` bridges, bit-vector lemmas, `bv_decide`,
+`omega`, induction, arrays, and vectors. [`CryptoValidation/Proofs.lean`](CryptoValidation/Proofs.lean)
+checks output sizes, exact `ByteVector` equality, incremental chunk equivalence,
+SHAKE split reads, padding alignment, and endian serialization round trips.
 
 External executables used by conformance tests are test-only dependencies:
 GNU coreutils and OpenSSL. They are never imported or invoked by the root

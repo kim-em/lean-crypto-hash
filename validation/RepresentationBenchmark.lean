@@ -10,10 +10,12 @@ private def asVector64 (bytes : ByteArray) : Vector UInt8 64 :=
   Vector.ofFn fun i => bytes[i.val]?.getD 0
 
 @[noinline] private def consumeBytes (bytes : ByteArray) (seed : UInt64) : UInt64 :=
-  bytes.foldl (fun acc byte => (acc.rotateLeft 1) ^^^ byte.toUInt64) seed
+  bytes.foldl (fun acc byte =>
+    Crypto.Hash.Internal.UInt64.rotateLeft acc 1 ^^^ byte.toUInt64) seed
 
 @[noinline] private def consumeVector (bytes : ByteArray) (seed : UInt64) : UInt64 :=
-  (asVector64 bytes).foldl (fun acc byte => (acc.rotateLeft 1) ^^^ byte.toUInt64) seed
+  (asVector64 bytes).foldl (fun acc byte =>
+    Crypto.Hash.Internal.UInt64.rotateLeft acc 1 ^^^ byte.toUInt64) seed
 
 private def benchTime (iterations : Nat) (work : ByteArray → UInt64 → UInt64)
     (digest : ByteArray) : IO Nat := do
@@ -26,7 +28,7 @@ private def benchTime (iterations : Nat) (work : ByteArray → UInt64 → UInt64
   return finish - start
 
 def main : IO UInt32 := do
-  let digest := ByteArray.sha3_512 "representation benchmark".toUTF8
+  let digest := Crypto.Hash.digest .sha3_512 "representation benchmark".toUTF8 |>.toByteArray
   let iterations := 200000
   discard <| benchTime 1000 consumeBytes digest
   discard <| benchTime 1000 consumeVector digest

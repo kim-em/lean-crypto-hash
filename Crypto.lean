@@ -5,10 +5,6 @@ Authors: Kim Morrison
 -/
 
 import Crypto.Hash
-import Crypto.MD5
-import Crypto.SHA1
-import Crypto.SHA2
-import Crypto.SHA3
 
 /-! # Cryptographic Hash Functions
 

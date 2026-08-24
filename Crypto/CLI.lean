@@ -10,6 +10,46 @@ import Crypto.Hash
 
 namespace Crypto.CLI
 
+private def fixedTool : Hash.Algorithm → String
+  | .md5 => "md5sum"
+  | .sha1 => "sha1sum"
+  | .sha224 => "sha224sum"
+  | .sha256 => "sha256sum"
+  | .sha384 => "sha384sum"
+  | .sha512 => "sha512sum"
+  | .sha3_224 => "sha3_224sum"
+  | .sha3_256 => "sha3_256sum"
+  | .sha3_384 => "sha3_384sum"
+  | .sha3_512 => "sha3_512sum"
+
+private structure HashSpec where
+  name : String
+  tool : String
+  outputBytes : Nat
+  Context : Type
+  init : Context
+  update : Context → ByteArray → Context
+  finalizeHex : Context → String
+
+private def fixedSpec (algorithm : Hash.Algorithm) : HashSpec where
+  name := algorithm.name
+  tool := fixedTool algorithm
+  outputBytes := algorithm.outputBytes
+  Context := Hash.Context algorithm
+  init := Hash.Context.init algorithm
+  update := Hash.Context.update
+  finalizeHex := Hash.Context.finalizeHex
+
+private def xofSpec (algorithm : Hash.XofAlgorithm) (outputBytes : Nat)
+    (tool : String) : HashSpec where
+  name := algorithm.name
+  tool := tool
+  outputBytes := outputBytes
+  Context := Hash.XofContext algorithm
+  init := Hash.XofContext.init algorithm
+  update := Hash.XofContext.update
+  finalizeHex context := (context.finalize.read outputBytes).1.toHex
+
 structure SHASumOptions where
   binary : Bool := false
   modeSpecified : Bool := false
@@ -164,24 +204,29 @@ def parseChecksumLine (algName : String) (hexDigits : Nat)
       some (hash, filename, marker == '*')
     | _ => none
 
-private partial def hashChunks (ctx : HashContext) (readChunk : IO ByteArray) : IO String := do
+private partial def hashChunks (spec : HashSpec) (ctx : spec.Context)
+    (readChunk : IO ByteArray) : IO String := do
   let chunk ← readChunk
-  if chunk.isEmpty then return ctx.finalizeHex
-  hashChunks (ctx.update chunk) readChunk
+  if chunk.isEmpty then return spec.finalizeHex ctx
+  hashChunks spec (spec.update ctx chunk) readChunk
 
 private def chunkBytes : USize := 64 * 1024
 
 /-- Hash a stream in bounded memory. -/
-def hashStream (algo : HashAlgorithm) (stream : IO.FS.Stream) : IO String :=
-  hashChunks algo.newContext (stream.read chunkBytes)
+private def hashStreamWith (spec : HashSpec) (stream : IO.FS.Stream) : IO String :=
+  hashChunks spec spec.init (stream.read chunkBytes)
+
+/-- Hash a stream with a fixed-output algorithm. -/
+def hashStream (algorithm : Hash.Algorithm) (stream : IO.FS.Stream) : IO String :=
+  hashStreamWith (fixedSpec algorithm) stream
 
 /-- Hash a file in bounded memory; `-` denotes standard input. -/
-def hashFile (algo : HashAlgorithm) (filename : String) : IO String := do
+private def hashFile (spec : HashSpec) (filename : String) : IO String := do
   if filename == "-" then
-    hashStream algo (← IO.getStdin)
+    hashStreamWith spec (← IO.getStdin)
   else
     let handle ← IO.FS.Handle.mk filename .read
-    hashChunks algo.newContext (handle.read chunkBytes)
+    hashChunks spec spec.init (handle.read chunkBytes)
 
 private def diagnosticSafe (c : Char) : Bool :=
   c.isAlphanum || "%+,-./:=@_~".contains c
@@ -214,7 +259,7 @@ private def errorDescription : IO.Error → String
 private def plural (count : Nat) (singular plural : String) : String :=
   if count == 1 then singular else plural
 
-def checkFile (algo : HashAlgorithm) (filename : String) (expectedHash : String)
+private def checkFile (algo : HashSpec) (filename : String) (expectedHash : String)
     (opts : SHASumOptions) : IO CheckResult := do
   try
     let actualHash ← hashFile algo filename
@@ -248,7 +293,7 @@ private def checksumRecords (content : String) (zero : Bool) : List (Nat × Stri
 private def checksumSourceName (filename : String) : String :=
   if filename == "-" then "standard input" else filename
 
-def runCheckMode (algo : HashAlgorithm) (files : List String) (opts : SHASumOptions) : IO Unit := do
+private def runCheckMode (algo : HashSpec) (files : List String) (opts : SHASumOptions) : IO Unit := do
   let mut allSuccess := true
   let sources := if files.isEmpty then ["-"] else files
   for file in sources do
@@ -264,7 +309,7 @@ def runCheckMode (algo : HashAlgorithm) (files : List String) (opts : SHASumOpti
         | some content => pure content
         | none => throw (IO.userError "checksum file is not valid UTF-8")
       for (lineNumber, line) in checksumRecords content opts.zero do
-        match parseChecksumLine algo.name (algo.bitSize / 4) line with
+        match parseChecksumLine algo.name (algo.outputBytes * 2) line with
         | some (expectedHash, filename, _binary) =>
           hasProperlyFormatted := true
           match ← checkFile algo filename expectedHash opts with
@@ -311,9 +356,9 @@ def runCheckMode (algo : HashAlgorithm) (files : List String) (opts : SHASumOpti
     if opts.strict && hasMalformed then allSuccess := false
   if !allSuccess then throw (IO.userError "checksum verification failed")
 
-def printHelp (algo : HashAlgorithm) : IO Unit := do
+private def printHelp (algo : HashSpec) : IO Unit := do
   IO.println s!"Usage: {algo.tool} [OPTION]... [FILE]..."
-  IO.println s!"Print or check {algo.name} ({algo.bitSize}-bit) checksums."
+  IO.println s!"Print or check {algo.name} ({algo.outputBytes * 8}-bit) checksums."
   IO.println ""
   IO.println "With no FILE, or when FILE is -, read standard input."
   IO.println "  -b, --binary          read in binary mode"
@@ -330,10 +375,10 @@ def printHelp (algo : HashAlgorithm) : IO Unit := do
   IO.println "      --help             display this help and exit"
   IO.println "      --version          output version information and exit"
 
-def printVersion (algo : HashAlgorithm) : IO Unit := do
-  IO.println s!"{algo.tool} (lean-crypto-hash) 0.1.0"
+private def printVersion (algo : HashSpec) : IO Unit := do
+  IO.println s!"{algo.tool} (lean-crypto-hash; Lean {Lean.versionString})"
 
-def runHashSum (algo : HashAlgorithm) (args : List String) : IO Unit := do
+private def runHashSum (algo : HashSpec) (args : List String) : IO Unit := do
   let opts ← match parseArgs args with
     | .ok opts => pure opts
     | .error message =>
@@ -378,15 +423,15 @@ def runHashSum (algo : HashAlgorithm) (args : List String) : IO Unit := do
   if !success then throw (IO.userError "one or more inputs could not be read")
 
 /-- Run a hash-sum command with an explicit process status and no uncaught-exception trailer. -/
-def runHashSumMain (algo : HashAlgorithm) (args : List String) : IO UInt32 := do
+def runHashSumMain (algorithm : Hash.Algorithm) (args : List String) : IO UInt32 := do
   try
-    runHashSum algo args
+    runHashSum (fixedSpec algorithm) args
     return 0
   catch _ =>
     return 1
 
 /-- Shared entry point for the two SHAKE commands. -/
-def runShakeSumMain (algorithm : Nat → HashAlgorithm) (toolName : String)
+def runShakeSumMain (algorithm : Hash.XofAlgorithm) (toolName : String)
     (args : List String) : IO UInt32 := do
   try
     let optionArgs := args.takeWhile (· != "--")
@@ -397,14 +442,14 @@ def runShakeSumMain (algorithm : Nat → HashAlgorithm) (toolName : String)
       IO.println "  -h, --help          display this help and exit"
       return 0
     if optionArgs.contains "--version" then
-      printVersion (algorithm 0)
+      printVersion (xofSpec algorithm 0 toolName)
       return 0
     let (outputLength, remainingArgs) ← match parseShakeLength args with
       | .ok result => pure result
       | .error message =>
         IO.eprintln s!"{toolName}: {message}"
         throw (IO.userError message)
-    runHashSum (algorithm outputLength) remainingArgs
+    runHashSum (xofSpec algorithm outputLength toolName) remainingArgs
     return 0
   catch _ =>
     return 1

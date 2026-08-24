@@ -14,7 +14,7 @@ This module contains all constants required for the SHA-3/Keccak algorithm:
 - Rate and capacity parameters for different SHA-3 variants
 -/
 
-namespace CryptoHash.SHA3
+namespace Crypto.Hash.Internal.SHA3
 
 -- Round constants for the ι (iota) step of Keccak-f[1600]
 -- These are derived from a linear feedback shift register (LFSR)
@@ -69,4 +69,4 @@ def shake256_params : SHA3Params :=
 def sha3_suffix : UInt8 := 0x06    -- 01|10 in binary (read right to left)
 def shake_suffix : UInt8 := 0x1F   -- 1111|1 in binary (read right to left)
 
-end CryptoHash.SHA3
+end Crypto.Hash.Internal.SHA3

@@ -16,7 +16,7 @@ This module provides utility functions for SHA-3/Keccak implementation:
 - Output formatting
 -/
 
-namespace CryptoHash.SHA3
+namespace Crypto.Hash.Internal.SHA3
 
 -- Initialize empty Keccak state (all zeros)
 def emptyState : KeccakState := Vector.replicate 5 (Vector.replicate 5 0)
@@ -119,39 +119,58 @@ def KeccakState.squeeze (state : KeccakState) (rateBytes : Nat) (outputLength : 
   else
     result
 
--- Multi-rate padding for Keccak
-def ByteArray.padKeccak (data : ByteArray) (rateBytes : Nat) (suffix : UInt8) : ByteArray := Id.run do
-  if rateBytes == 0 then return data
-  let mut padded := data
-
-  -- When one byte remains in the rate block, the domain suffix and final
-  -- pad bit occupy that same byte. Appending a separate suffix byte here
-  -- would incorrectly add a whole extra block.
-  if data.size % rateBytes == rateBytes - 1 then
-    padded := padded.push (suffix ||| 0x80)
+/-- Multi-rate padding for Keccak. -/
+def ByteArray.padKeccak (data : ByteArray) (rateBytes : Nat) (suffix : UInt8) : ByteArray :=
+  if rateBytes = 0 then
+    data
+  else if data.size % rateBytes = rateBytes - 1 then
+    -- When one byte remains in the rate block, the domain suffix and final
+    -- pad bit occupy that same byte.
+    data.push (suffix ||| 0x80)
   else
-    padded := padded.push suffix
-    while padded.size % rateBytes != rateBytes - 1 do
-      padded := padded.push 0
-    padded := padded.push 0x80
+    let zeroBytes := (rateBytes - ((data.size + 2) % rateBytes)) % rateBytes
+    data.push suffix ++ ByteArray.mk (Array.replicate zeroBytes 0) |>.push 0x80
 
-  padded
+theorem ByteArray.padKeccak_prefix (data : ByteArray) (rateBytes : Nat) (suffix : UInt8) :
+    (Crypto.Hash.Internal.SHA3.ByteArray.padKeccak data rateBytes suffix).extract 0 data.size = data := by
+  rw [ByteArray.ext_iff]
+  simp only [ByteArray.padKeccak]
+  split <;> rename_i rate_zero
+  · simp_all
+  · split <;> simp_all
 
--- Convert byte array to hex string
-def ByteArray.toHexString (data : ByteArray) : String := Id.run do
-  let mut result := ""
-  for i in [0:data.size] do
-    if h : i < data.size then
-      result := result ++ toHex data[i]
-  result
-  where
-    toHex (b : UInt8) : String :=
-      let hi := (b >>> 4) &&& 0xF
-      let lo := b &&& 0xF
-      String.ofList [toChar hi, toChar lo]
+theorem ByteArray.padKeccak_aligned (data : ByteArray) (rateBytes : Nat) (suffix : UInt8)
+    (rateBytes_pos : 0 < rateBytes) :
+    (Crypto.Hash.Internal.SHA3.ByteArray.padKeccak data rateBytes suffix).size % rateBytes = 0 := by
+  simp only [ByteArray.padKeccak, if_neg (Nat.ne_of_gt rateBytes_pos)]
+  split <;> rename_i h
+  · simp only [ByteArray.size_push]
+    by_cases rateBytes_one : rateBytes = 1
+    · subst rateBytes
+      exact Nat.mod_one _
+    · have one_lt : 1 < rateBytes := by omega
+      have one_mod : 1 % rateBytes = 1 := Nat.mod_eq_of_lt one_lt
+      rw [Nat.add_mod, h, one_mod]
+      have : rateBytes - 1 + 1 = rateBytes := by omega
+      rw [this, Nat.mod_self]
+  · simp only [ByteArray.size_push, ByteArray.size_append]
+    change (data.size + 1 + (Array.replicate _ _).size + 1) % rateBytes = 0
+    rw [Array.size_replicate]
+    let remainder := (data.size + 2) % rateBytes
+    have remainder_lt : remainder < rateBytes := Nat.mod_lt _ rateBytes_pos
+    have reassociate :
+        data.size + 1 + (rateBytes - remainder) % rateBytes + 1 =
+          data.size + 2 + (rateBytes - remainder) % rateBytes := by
+      omega
+    rw [reassociate, Nat.add_mod]
+    rw [Nat.mod_mod]
+    change (remainder + (rateBytes - remainder) % rateBytes) % rateBytes = 0
+    by_cases remainder_zero : remainder = 0
+    · simp [remainder_zero]
+    · have remainder_pos : 0 < remainder := Nat.pos_of_ne_zero remainder_zero
+      have complement_lt : rateBytes - remainder < rateBytes := by omega
+      rw [Nat.mod_eq_of_lt complement_lt]
+      have : remainder + (rateBytes - remainder) = rateBytes := by omega
+      rw [this, Nat.mod_self]
 
-    toChar (n : UInt8) : Char :=
-      if n < 10 then Char.ofNat ('0'.toNat + n.toNat)
-      else Char.ofNat ('a'.toNat + (n.toNat - 10))
-
-end CryptoHash.SHA3
+end Crypto.Hash.Internal.SHA3

@@ -4,6 +4,8 @@ import Crypto
 
 namespace CryptoValidation.OfficialVectors
 
+open Crypto.Hash
+
 structure TestCase where
   input : ByteArray
   expected : String
@@ -69,28 +71,30 @@ def parse (content : String) : Except String (Array TestCase) := Id.run do
         messageHex := none
   return .ok cases
 
-structure Suite where
+private inductive SuiteAlgorithm where
+  | fixed (algorithm : Algorithm)
+  | xof (algorithm : XofAlgorithm)
+
+private structure Suite where
   label : String
   file : String
-  algorithm : Nat → HashAlgorithm
+  algorithm : SuiteAlgorithm
   expectedCases : Nat
 
-private def fixed (algorithm : HashAlgorithm) : Nat → HashAlgorithm := fun _ => algorithm
-
 private def suites : List Suite :=
-  [ ⟨"SHA-1", "SHA1ShortMsg.rsp", fixed .sha1, 65⟩,
-    ⟨"SHA-224", "SHA224ShortMsg.rsp", fixed .sha224, 65⟩,
-    ⟨"SHA-256", "SHA256ShortMsg.rsp", fixed .sha256, 65⟩,
-    ⟨"SHA-384", "SHA384ShortMsg.rsp", fixed .sha384, 129⟩,
-    ⟨"SHA-512", "SHA512ShortMsg.rsp", fixed .sha512, 129⟩,
-    ⟨"SHA3-224", "SHA3_224ShortMsg.rsp", fixed .sha3_224, 145⟩,
-    ⟨"SHA3-256", "SHA3_256ShortMsg.rsp", fixed .sha3_256, 137⟩,
-    ⟨"SHA3-384", "SHA3_384ShortMsg.rsp", fixed .sha3_384, 105⟩,
-    ⟨"SHA3-512", "SHA3_512ShortMsg.rsp", fixed .sha3_512, 73⟩,
-    ⟨"SHAKE128 short", "SHAKE128ShortMsg.rsp", (fun n => .shake128 n), 337⟩,
-    ⟨"SHAKE256 short", "SHAKE256ShortMsg.rsp", (fun n => .shake256 n), 273⟩,
-    ⟨"SHAKE128 variable output", "SHAKE128VariableOut.rsp", (fun n => .shake128 n), 1126⟩,
-    ⟨"SHAKE256 variable output", "SHAKE256VariableOut.rsp", (fun n => .shake256 n), 1246⟩ ]
+  [ ⟨"SHA-1", "SHA1ShortMsg.rsp", .fixed .sha1, 65⟩,
+    ⟨"SHA-224", "SHA224ShortMsg.rsp", .fixed .sha224, 65⟩,
+    ⟨"SHA-256", "SHA256ShortMsg.rsp", .fixed .sha256, 65⟩,
+    ⟨"SHA-384", "SHA384ShortMsg.rsp", .fixed .sha384, 129⟩,
+    ⟨"SHA-512", "SHA512ShortMsg.rsp", .fixed .sha512, 129⟩,
+    ⟨"SHA3-224", "SHA3_224ShortMsg.rsp", .fixed .sha3_224, 145⟩,
+    ⟨"SHA3-256", "SHA3_256ShortMsg.rsp", .fixed .sha3_256, 137⟩,
+    ⟨"SHA3-384", "SHA3_384ShortMsg.rsp", .fixed .sha3_384, 105⟩,
+    ⟨"SHA3-512", "SHA3_512ShortMsg.rsp", .fixed .sha3_512, 73⟩,
+    ⟨"SHAKE128 short", "SHAKE128ShortMsg.rsp", .xof .shake128, 337⟩,
+    ⟨"SHAKE256 short", "SHAKE256ShortMsg.rsp", .xof .shake256, 273⟩,
+    ⟨"SHAKE128 variable output", "SHAKE128VariableOut.rsp", .xof .shake128, 1126⟩,
+    ⟨"SHAKE256 variable output", "SHAKE256VariableOut.rsp", .xof .shake256, 1246⟩ ]
 
 private def runSuite (suite : Suite) : IO Bool := do
   let path := s!"vectors/nist/{suite.file}"
@@ -102,7 +106,9 @@ private def runSuite (suite : Suite) : IO Bool := do
     return false
   let mut passed := true
   for test in cases do
-    let actual := ByteArray.hashWithHex (suite.algorithm test.outputBytes) test.input
+    let actual := match suite.algorithm with
+      | .fixed algorithm => digestHex algorithm test.input
+      | .xof algorithm => xofHex algorithm test.outputBytes test.input
     if actual != test.expected then
       IO.eprintln s!"FAILED {suite.label} official vector (input bytes {test.input.size}, output bytes {test.outputBytes})"
       passed := false
