@@ -9,6 +9,19 @@ import Crypto.CLI
 
 open Crypto Crypto.Hash
 
+/- The public algorithm index cannot be forged with a mismatched internal context. -/
+/--
+error: Unknown constant `Crypto.Hash.Context.mk`
+-/
+#guard_msgs in
+#check Crypto.Hash.Context.mk
+
+/--
+error: Unknown constant `Crypto.Hash.XofContext.mk`
+-/
+#guard_msgs in
+#check Crypto.Hash.XofContext.mk
+
 private def chunks (data : ByteArray) : List ByteArray :=
   [data.extract 0 1, data.extract 1 63, ByteArray.empty,
     data.extract 63 192, data.extract 192 data.size]

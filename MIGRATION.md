@@ -16,6 +16,14 @@ functions.
 | `HashDigest algorithm` | `Crypto.Hash.Digest algorithm` |
 | raw digest `ByteArray` | `Crypto.ByteVector n`; call `.toByteArray` explicitly |
 | `.toHexString` | `.toHex` on `Crypto.ByteVector` |
+| `CryptoHash.MD5/SHA1/SHA256/SHA512.Context` | `Crypto.Hash.Context algorithm` |
+| `CryptoHash.SHA3.Context` for SHA-3 | `Crypto.Hash.Context` with a `.sha3_*` algorithm |
+| `CryptoHash.SHA3.Context` for SHAKE | `Crypto.Hash.XofContext algorithm` |
+| `CryptoHash.SHA3.SqueezeReader` | `Crypto.Hash.XofReader algorithm` |
+
+The family-specific `CryptoHash.*` namespace is no longer supported. Its replacement is the
+sealed indexed API above; implementation declarations now live under `Crypto.Hash.Internal` and
+must not be used by downstream code.
 
 For incremental hashing:
 

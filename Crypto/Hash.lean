@@ -46,18 +46,24 @@ end Algorithm
 
 abbrev Digest (algorithm : Algorithm) := Crypto.ByteVector algorithm.outputBytes
 
-/-- An incremental computation indexed by its fixed-output algorithm. -/
-inductive Context : Algorithm → Type where
-  | md5 (context : Crypto.Hash.Internal.MD5.Context) : Context .md5
-  | sha1 (context : Crypto.Hash.Internal.SHA1.Context) : Context .sha1
-  | sha224 (context : Crypto.Hash.Internal.SHA256.Context) : Context .sha224
-  | sha256 (context : Crypto.Hash.Internal.SHA256.Context) : Context .sha256
-  | sha384 (context : Crypto.Hash.Internal.SHA512.Context) : Context .sha384
-  | sha512 (context : Crypto.Hash.Internal.SHA512.Context) : Context .sha512
-  | sha3_224 (context : Crypto.Hash.Internal.SHA3.Context) : Context .sha3_224
-  | sha3_256 (context : Crypto.Hash.Internal.SHA3.Context) : Context .sha3_256
-  | sha3_384 (context : Crypto.Hash.Internal.SHA3.Context) : Context .sha3_384
-  | sha3_512 (context : Crypto.Hash.Internal.SHA3.Context) : Context .sha3_512
+/-- The sealed representation of an incremental fixed-output computation. -/
+private inductive ContextRepresentation : Algorithm → Type where
+  | md5 (context : Crypto.Hash.Internal.MD5.Context) : ContextRepresentation .md5
+  | sha1 (context : Crypto.Hash.Internal.SHA1.Context) : ContextRepresentation .sha1
+  | sha224 (context : Crypto.Hash.Internal.SHA256.Context) : ContextRepresentation .sha224
+  | sha256 (context : Crypto.Hash.Internal.SHA256.Context) : ContextRepresentation .sha256
+  | sha384 (context : Crypto.Hash.Internal.SHA512.Context) : ContextRepresentation .sha384
+  | sha512 (context : Crypto.Hash.Internal.SHA512.Context) : ContextRepresentation .sha512
+  | sha3_224 (context : Crypto.Hash.Internal.SHA3.Context) : ContextRepresentation .sha3_224
+  | sha3_256 (context : Crypto.Hash.Internal.SHA3.Context) : ContextRepresentation .sha3_256
+  | sha3_384 (context : Crypto.Hash.Internal.SHA3.Context) : ContextRepresentation .sha3_384
+  | sha3_512 (context : Crypto.Hash.Internal.SHA3.Context) : ContextRepresentation .sha3_512
+
+/-- An incremental computation indexed by its fixed-output algorithm.
+Its representation is sealed so the type index cannot disagree with the algorithm parameters. -/
+structure Context (algorithm : Algorithm) where
+  private mk ::
+  private representation : ContextRepresentation algorithm
 
 namespace Context
 
@@ -65,41 +71,43 @@ variable {algorithm : Algorithm}
 
 def init (algorithm : Algorithm) : Context algorithm :=
   match algorithm with
-  | .md5 => .md5 Crypto.Hash.Internal.MD5.Context.init
-  | .sha1 => .sha1 (Crypto.Hash.Internal.SHA1.Context.init Crypto.Hash.Internal.SHA1.H0)
-  | .sha224 => .sha224 (Crypto.Hash.Internal.SHA256.Context.init Crypto.Hash.Internal.SHA224.H0)
-  | .sha256 => .sha256 (Crypto.Hash.Internal.SHA256.Context.init Crypto.Hash.Internal.SHA256.H0)
-  | .sha384 => .sha384 (Crypto.Hash.Internal.SHA512.Context.init Crypto.Hash.Internal.SHA384.H0)
-  | .sha512 => .sha512 (Crypto.Hash.Internal.SHA512.Context.init Crypto.Hash.Internal.SHA512.H0)
-  | .sha3_224 => .sha3_224 (Crypto.Hash.Internal.SHA3.Context.init
-      Crypto.Hash.Internal.SHA3.sha3_224_params Crypto.Hash.Internal.SHA3.sha3_suffix)
-  | .sha3_256 => .sha3_256 (Crypto.Hash.Internal.SHA3.Context.init
-      Crypto.Hash.Internal.SHA3.sha3_256_params Crypto.Hash.Internal.SHA3.sha3_suffix)
-  | .sha3_384 => .sha3_384 (Crypto.Hash.Internal.SHA3.Context.init
-      Crypto.Hash.Internal.SHA3.sha3_384_params Crypto.Hash.Internal.SHA3.sha3_suffix)
-  | .sha3_512 => .sha3_512 (Crypto.Hash.Internal.SHA3.Context.init
-      Crypto.Hash.Internal.SHA3.sha3_512_params Crypto.Hash.Internal.SHA3.sha3_suffix)
+  | .md5 => ⟨.md5 Crypto.Hash.Internal.MD5.Context.init⟩
+  | .sha1 => ⟨.sha1 (Crypto.Hash.Internal.SHA1.Context.init Crypto.Hash.Internal.SHA1.H0)⟩
+  | .sha224 => ⟨.sha224 (Crypto.Hash.Internal.SHA256.Context.init Crypto.Hash.Internal.SHA224.H0)⟩
+  | .sha256 => ⟨.sha256 (Crypto.Hash.Internal.SHA256.Context.init Crypto.Hash.Internal.SHA256.H0)⟩
+  | .sha384 => ⟨.sha384 (Crypto.Hash.Internal.SHA512.Context.init Crypto.Hash.Internal.SHA384.H0)⟩
+  | .sha512 => ⟨.sha512 (Crypto.Hash.Internal.SHA512.Context.init Crypto.Hash.Internal.SHA512.H0)⟩
+  | .sha3_224 => ⟨.sha3_224 (Crypto.Hash.Internal.SHA3.Context.init
+      Crypto.Hash.Internal.SHA3.sha3_224_params Crypto.Hash.Internal.SHA3.sha3_suffix)⟩
+  | .sha3_256 => ⟨.sha3_256 (Crypto.Hash.Internal.SHA3.Context.init
+      Crypto.Hash.Internal.SHA3.sha3_256_params Crypto.Hash.Internal.SHA3.sha3_suffix)⟩
+  | .sha3_384 => ⟨.sha3_384 (Crypto.Hash.Internal.SHA3.Context.init
+      Crypto.Hash.Internal.SHA3.sha3_384_params Crypto.Hash.Internal.SHA3.sha3_suffix)⟩
+  | .sha3_512 => ⟨.sha3_512 (Crypto.Hash.Internal.SHA3.Context.init
+      Crypto.Hash.Internal.SHA3.sha3_512_params Crypto.Hash.Internal.SHA3.sha3_suffix)⟩
 
 def update (context : Context algorithm) (input : ByteArray) : Context algorithm :=
-  match context with
-  | .md5 c => .md5 (c.update input)
-  | .sha1 c => .sha1 (c.update input)
-  | .sha224 c => .sha224 (c.update input)
-  | .sha256 c => .sha256 (c.update input)
-  | .sha384 c => .sha384 (c.update input)
-  | .sha512 c => .sha512 (c.update input)
-  | .sha3_224 c => .sha3_224 (c.update input)
-  | .sha3_256 c => .sha3_256 (c.update input)
-  | .sha3_384 c => .sha3_384 (c.update input)
-  | .sha3_512 c => .sha3_512 (c.update input)
+  match context.representation with
+  | .md5 c => ⟨.md5 (c.update input)⟩
+  | .sha1 c => ⟨.sha1 (c.update input)⟩
+  | .sha224 c => ⟨.sha224 (c.update input)⟩
+  | .sha256 c => ⟨.sha256 (c.update input)⟩
+  | .sha384 c => ⟨.sha384 (c.update input)⟩
+  | .sha512 c => ⟨.sha512 (c.update input)⟩
+  | .sha3_224 c => ⟨.sha3_224 (c.update input)⟩
+  | .sha3_256 c => ⟨.sha3_256 (c.update input)⟩
+  | .sha3_384 c => ⟨.sha3_384 (c.update input)⟩
+  | .sha3_512 c => ⟨.sha3_512 (c.update input)⟩
 
 @[simp] theorem update_empty (context : Context algorithm) :
     context.update ByteArray.empty = context := by
-  cases context <;> rfl
+  rcases context with ⟨representation⟩
+  cases representation <;> rfl
 
 theorem update_append (context : Context algorithm) (left right : ByteArray) :
     (context.update left).update right = context.update (left ++ right) := by
-  cases context with
+  rcases context with ⟨representation⟩
+  cases representation with
   | md5 context => simpa [update] using context.update_append left right
   | sha1 context => simpa [update] using context.update_append left right
   | sha224 context => simpa [update] using context.update_append left right
@@ -128,7 +136,7 @@ theorem updateChunks_eq_update_join (context : Context algorithm) (chunks : List
     rfl
 
 def finalize (context : Context algorithm) : Digest algorithm :=
-  match context with
+  match context.representation with
   | .md5 c => Crypto.ByteVector.ofUInt32LE c.finalize
   | .sha1 c => Crypto.ByteVector.ofUInt32BE c.finalize
   | .sha224 c => Crypto.ByteVector.ofUInt32BE (c.finalize.take 7)
@@ -171,10 +179,18 @@ def name : XofAlgorithm → String
 
 end XofAlgorithm
 
-/-- Incremental SHAKE absorption indexed by the selected XOF. -/
-inductive XofContext : XofAlgorithm → Type where
-  | shake128 (context : Crypto.Hash.Internal.SHA3.Context) : XofContext .shake128
-  | shake256 (context : Crypto.Hash.Internal.SHA3.Context) : XofContext .shake256
+/-- The sealed representation of an incremental XOF computation. -/
+private inductive XofContextRepresentation : XofAlgorithm → Type where
+  | shake128 (context : Crypto.Hash.Internal.SHA3.Context) :
+      XofContextRepresentation .shake128
+  | shake256 (context : Crypto.Hash.Internal.SHA3.Context) :
+      XofContextRepresentation .shake256
+
+/-- Incremental SHAKE absorption indexed by the selected XOF.
+Its representation is sealed so the type index cannot disagree with the rate parameters. -/
+structure XofContext (algorithm : XofAlgorithm) where
+  private mk ::
+  private representation : XofContextRepresentation algorithm
 
 /-- Reusable SHAKE output cursor indexed by the selected XOF. -/
 structure XofReader (_algorithm : XofAlgorithm) where
@@ -186,23 +202,25 @@ variable {algorithm : XofAlgorithm}
 
 def init (algorithm : XofAlgorithm) : XofContext algorithm :=
   match algorithm with
-  | .shake128 => .shake128 (Crypto.Hash.Internal.SHA3.Context.init
-      Crypto.Hash.Internal.SHA3.shake128_params Crypto.Hash.Internal.SHA3.shake_suffix)
-  | .shake256 => .shake256 (Crypto.Hash.Internal.SHA3.Context.init
-      Crypto.Hash.Internal.SHA3.shake256_params Crypto.Hash.Internal.SHA3.shake_suffix)
+  | .shake128 => ⟨.shake128 (Crypto.Hash.Internal.SHA3.Context.init
+      Crypto.Hash.Internal.SHA3.shake128_params Crypto.Hash.Internal.SHA3.shake_suffix)⟩
+  | .shake256 => ⟨.shake256 (Crypto.Hash.Internal.SHA3.Context.init
+      Crypto.Hash.Internal.SHA3.shake256_params Crypto.Hash.Internal.SHA3.shake_suffix)⟩
 
 def update (context : XofContext algorithm) (input : ByteArray) : XofContext algorithm :=
-  match context with
-  | .shake128 c => .shake128 (c.update input)
-  | .shake256 c => .shake256 (c.update input)
+  match context.representation with
+  | .shake128 c => ⟨.shake128 (c.update input)⟩
+  | .shake256 c => ⟨.shake256 (c.update input)⟩
 
 @[simp] theorem update_empty (context : XofContext algorithm) :
     context.update ByteArray.empty = context := by
-  cases context <;> rfl
+  rcases context with ⟨representation⟩
+  cases representation <;> rfl
 
 theorem update_append (context : XofContext algorithm) (left right : ByteArray) :
     (context.update left).update right = context.update (left ++ right) := by
-  cases context with
+  rcases context with ⟨representation⟩
+  cases representation with
   | shake128 context => simpa [update] using context.update_append left right
   | shake256 context => simpa [update] using context.update_append left right
 
@@ -220,7 +238,7 @@ theorem updateChunks_eq_update_join (context : XofContext algorithm)
     rfl
 
 def finalize (context : XofContext algorithm) : XofReader algorithm :=
-  match context with
+  match context.representation with
   | .shake128 c => ⟨c.finalize⟩
   | .shake256 c => ⟨c.finalize⟩
 
