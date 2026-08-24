@@ -2,13 +2,49 @@ name: Lean Action CI
 
 on:
   push:
+    branches: [master]
   pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lean-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: leanprover/lean-action@v1
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: leanprover/lean-action@50fcf42d2e460296f1a34b402e990d1b24f8b596 # v1
+        with:
+          build: true
+          test: true
+          build-args: "--wfail"
+          use-mathlib-cache: false
+      - name: Enforce dependency-free root boundary
+        run: validation/scripts/check-root-boundary.sh
+      - name: Cache pinned GNU coreutils 9.11 oracle
+        id: cache-coreutils
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: ${{ runner.temp }}/coreutils-9.11
+          key: coreutils-9.11-394024eda0a5955217ceda9cd1201e65dc8fa3aa29c2951135a49521d57c3cc3
+      - name: Build pinned GNU coreutils 9.11 oracle
+        if: steps.cache-coreutils.outputs.cache-hit != 'true'
+        run: validation/scripts/install-coreutils-9.11.sh "$RUNNER_TEMP/coreutils-9.11"
+      - name: Downstream official-vector and oracle conformance
+        run: |
+          export PATH="$RUNNER_TEMP/coreutils-9.11/bin:$PATH"
+          md5sum --version | head -1
+          openssl version
+          cd validation
+          lake build --wfail
+          lake test
+      - name: Exact CLI differential checks
+        run: |
+          export PATH="$RUNNER_TEMP/coreutils-9.11/bin:$PATH"
+          validation/scripts/cli-conformance.sh

@@ -43,16 +43,27 @@ structure SHA3Params where
   rate : Nat          -- Rate in bits
   capacity : Nat      -- Capacity in bits
   outputLength : Nat  -- Output length in bits
+  rateCapacity : rate + capacity = 1600
+  ratePositive : 0 < rate
+  capacityPositive : 0 < capacity
+  rateByteAligned : rate % 8 = 0
+  outputByteAligned : outputLength % 8 = 0
 
 -- SHA-3 standard variants
-def sha3_224_params : SHA3Params := ⟨1152, 448, 224⟩
-def sha3_256_params : SHA3Params := ⟨1088, 512, 256⟩
-def sha3_384_params : SHA3Params := ⟨832, 768, 384⟩
-def sha3_512_params : SHA3Params := ⟨576, 1024, 512⟩
+def sha3_224_params : SHA3Params :=
+  ⟨1152, 448, 224, by decide, by decide, by decide, by decide, by decide⟩
+def sha3_256_params : SHA3Params :=
+  ⟨1088, 512, 256, by decide, by decide, by decide, by decide, by decide⟩
+def sha3_384_params : SHA3Params :=
+  ⟨832, 768, 384, by decide, by decide, by decide, by decide, by decide⟩
+def sha3_512_params : SHA3Params :=
+  ⟨576, 1024, 512, by decide, by decide, by decide, by decide, by decide⟩
 
 -- SHAKE variants (extendable output)
-def shake128_params : SHA3Params := ⟨1344, 256, 0⟩  -- Output length is variable
-def shake256_params : SHA3Params := ⟨1088, 512, 0⟩  -- Output length is variable
+def shake128_params : SHA3Params :=
+  ⟨1344, 256, 0, by decide, by decide, by decide, by decide, by decide⟩
+def shake256_params : SHA3Params :=
+  ⟨1088, 512, 0, by decide, by decide, by decide, by decide, by decide⟩
 
 -- Domain separation suffixes for different hash types
 def sha3_suffix : UInt8 := 0x06    -- 01|10 in binary (read right to left)

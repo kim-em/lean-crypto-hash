@@ -44,12 +44,9 @@ def uint64ToLEBytes (value : UInt64) : Vector UInt8 8 := #v[
   ((value >>> 56) &&& 0xFF).toUInt8
 ]
 
--- Convert byte array to Keccak state
--- The state absorbs bytes in little-endian order
-def ByteArray.toKeccakState (data : ByteArray) : KeccakState := Id.run do
-  if data.size != 200 then
-    panic! "Invalid data size for Keccak state conversion"
-
+/-- Convert exactly 200 bytes to a Keccak state in little-endian lane order. -/
+def ByteArray.toKeccakState? (data : ByteArray) : Option KeccakState := do
+  if data.size != 200 then none
   let mut state : KeccakState := emptyState
   for y in List.finRange 5 do
     for x in List.finRange 5 do
@@ -63,7 +60,7 @@ def ByteArray.toKeccakState (data : ByteArray) : KeccakState := Id.run do
       let newRow := row.set x (bytesToUInt64LE bytes)
       state := state.set y newRow
 
-  state
+  some state
 
 -- Convert Keccak state to byte array
 def KeccakState.toByteArray (state : KeccakState) : ByteArray := Id.run do
@@ -77,11 +74,8 @@ def KeccakState.toByteArray (state : KeccakState) : ByteArray := Id.run do
 
 -- XOR a block of data into the state at the given rate
 def KeccakState.absorb (state : KeccakState) (data : ByteArray) (rateBytes : Nat) : KeccakState := Id.run do
-  if data.size > rateBytes then
-    panic! "Data block too large for absorption"
-
   let mut newState := state
-  for i in [0:data.size] do
+  for i in [0:min data.size rateBytes] do
     if h : i < data.size then
       let laneIndex := i / 8
       let byteIndex := i % 8
@@ -127,17 +121,19 @@ def KeccakState.squeeze (state : KeccakState) (rateBytes : Nat) (outputLength : 
 
 -- Multi-rate padding for Keccak
 def ByteArray.padKeccak (data : ByteArray) (rateBytes : Nat) (suffix : UInt8) : ByteArray := Id.run do
+  if rateBytes == 0 then return data
   let mut padded := data
 
-  -- Add domain separation suffix
-  padded := padded.push suffix
-
-  -- Pad with zeros until we reach rateBytes boundary, but leave room for final 0x80
-  while padded.size % rateBytes != rateBytes - 1 do
-    padded := padded.push 0
-
-  -- Add final 0x80 byte
-  padded := padded.push 0x80
+  -- When one byte remains in the rate block, the domain suffix and final
+  -- pad bit occupy that same byte. Appending a separate suffix byte here
+  -- would incorrectly add a whole extra block.
+  if data.size % rateBytes == rateBytes - 1 then
+    padded := padded.push (suffix ||| 0x80)
+  else
+    padded := padded.push suffix
+    while padded.size % rateBytes != rateBytes - 1 do
+      padded := padded.push 0
+    padded := padded.push 0x80
 
   padded
 

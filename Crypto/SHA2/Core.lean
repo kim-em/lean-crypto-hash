@@ -77,21 +77,33 @@ def compressBlock (H : Vector UInt32 8) (block : Vector UInt32 16) : Vector UInt
   #v[H[0] + a, H[1] + b, H[2] + c, H[3] + d,
     H[4] + e, H[5] + f, H[6] + g, H[7] + h]
 
+/-- Incremental SHA-224/SHA-256 state. -/
+structure Context where
+  private state : Vector UInt32 8
+  private buffer : ByteArray
+  private totalBytes : Nat
+
+namespace Context
+
+def init (initialHash : Vector UInt32 8) : Context :=
+  ⟨initialHash, ByteArray.empty, 0⟩
+
+def update (ctx : Context) (input : ByteArray) : Context :=
+  let combined := ctx.buffer ++ input
+  let completeBytes := combined.size / 64 * 64
+  let blocks := (combined.extract 0 completeBytes).toBlocks256
+  let state := blocks.foldl compressBlock ctx.state
+  ⟨state, combined.extract completeBytes combined.size, ctx.totalBytes + input.size⟩
+
+def finalize (ctx : Context) : Vector UInt32 8 :=
+  (ctx.buffer.padSHA256WithLength ctx.totalBytes).toBlocks256.foldl compressBlock ctx.state
+
+end Context
+
 /-- Generic SHA-256/224 hash computation with configurable initial hash.
 Internal implementation function. -/
 def hashWith (data : ByteArray) (initialHash : Vector UInt32 8) : Vector UInt32 8 := Id.run do
-  -- Step 1: Pad the message
-  let paddedData := data.padSHA256
-
-  -- Step 2: Split into 512-bit blocks
-  let blocks := paddedData.toBlocks256
-
-  -- Step 3: Process each block with compression function
-  let mut hash := initialHash
-  for block in blocks do
-    hash := SHA256.compressBlock hash block
-
-  hash
+  (Context.init initialHash |>.update data).finalize
 
 end SHA256
 
@@ -145,21 +157,33 @@ def compressBlock (hash : Vector UInt64 8) (block : Vector UInt64 16) : Vector U
   #v[hash[0] + a, hash[1] + b, hash[2] + c, hash[3] + d,
     hash[4] + e, hash[5] + f, hash[6] + g, hash[7] + h]
 
+/-- Incremental SHA-384/SHA-512 state. -/
+structure Context where
+  private state : Vector UInt64 8
+  private buffer : ByteArray
+  private totalBytes : Nat
+
+namespace Context
+
+def init (initialHash : Vector UInt64 8) : Context :=
+  ⟨initialHash, ByteArray.empty, 0⟩
+
+def update (ctx : Context) (input : ByteArray) : Context :=
+  let combined := ctx.buffer ++ input
+  let completeBytes := combined.size / 128 * 128
+  let blocks := (combined.extract 0 completeBytes).toBlocks512
+  let state := blocks.foldl compressBlock ctx.state
+  ⟨state, combined.extract completeBytes combined.size, ctx.totalBytes + input.size⟩
+
+def finalize (ctx : Context) : Vector UInt64 8 :=
+  (ctx.buffer.padSHA512WithLength ctx.totalBytes).toBlocks512.foldl compressBlock ctx.state
+
+end Context
+
 /-- Generic SHA-512/384 hash computation with configurable initial hash.
 Internal implementation function. -/
 def hashWith (data : ByteArray) (initialHash : Vector UInt64 8) : Vector UInt64 8 := Id.run do
-  -- Step 1: Pad the message
-  let paddedData := data.padSHA512
-
-  -- Step 2: Split into 1024-bit blocks
-  let blocks := paddedData.toBlocks512
-
-  -- Step 3: Process each block with compression function
-  let mut hash := initialHash
-  for block in blocks do
-    hash := SHA512.compressBlock hash block
-
-  hash
+  (Context.init initialHash |>.update data).finalize
 
 end SHA512
 

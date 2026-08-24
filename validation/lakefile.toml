@@ -1,0 +1,23 @@
+name = "crypto-validation"
+version = "0.1.0"
+defaultTargets = ["CryptoValidation", "conformance", "official-vectors", "representation-benchmark"]
+testRunner = "conformance"
+
+[[require]]
+name = "lean-crypto-hash"
+path = "../"
+
+[[lean_lib]]
+name = "CryptoValidation"
+
+[[lean_exe]]
+name = "conformance"
+root = "Conformance"
+
+[[lean_exe]]
+name = "official-vectors"
+root = "OfficialVectors"
+
+[[lean_exe]]
+name = "representation-benchmark"
+root = "RepresentationBenchmark"
