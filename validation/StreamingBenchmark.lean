@@ -28,34 +28,53 @@ private def chunkedHmac (key : ByteArray) (chunkBytes : Nat)
     offset := offset + chunkBytes
   return context.finalize
 
-@[noinline] private def timed {algorithm : Crypto.Hash.Algorithm}
-    (work : Unit → Crypto.Hash.Digest algorithm) : IO (Crypto.Hash.Digest algorithm × Nat) := do
+@[noinline] private def timed (work : Unit → ByteArray) : IO (ByteArray × Nat) := do
   let start ← IO.monoNanosNow
   let result := work ()
-  if result.toByteArray.size = 0 then IO.println "unreachable"
+  if result.size = 0 then IO.println "unreachable"
   let finish ← IO.monoNanosNow
   return (result, finish - start)
 
-@[noinline] private def timedHmac
-    (work : Unit → Crypto.HMAC.Tag .sha256) : IO (Crypto.HMAC.Tag .sha256 × Nat) := do
-  let start ← IO.monoNanosNow
-  let result := work ()
-  if result.toByteArray.size = 0 then IO.println "unreachable"
-  let finish ← IO.monoNanosNow
-  return (result, finish - start)
+private def medianTime (work : Unit → ByteArray) : IO (ByteArray × Nat) := do
+  let _ ← timed work
+  let mut samples := #[]
+  let mut result := ByteArray.empty
+  for _ in [0:7] do
+    let measured ← timed work
+    result := measured.1
+    samples := samples.push measured.2
+  return (result, (samples.qsortOrd)[3]!)
 
 def main : IO UInt32 := do
   let input := ByteArray.mk (Array.replicate (8 * 1024 * 1024) 0xa5)
-  let (oneShot, oneShotNanos) ← timed fun _ => Crypto.Hash.digest .sha256 input
-  let (chunked, chunkedNanos) ← timed fun _ => chunkedDigest .sha256 (64 * 1024) input
+  let (oneShot, oneShotNanos) ← medianTime fun _ =>
+    (Crypto.Hash.digest .sha256 input).toByteArray
+  let (chunked, chunkedNanos) ← medianTime fun _ =>
+    (chunkedDigest .sha256 (64 * 1024) input).toByteArray
   let key := ByteArray.mk (Array.replicate 80 0x5c)
-  let (hmacOneShot, hmacOneShotNanos) ← timedHmac fun _ => Crypto.HMAC.compute .sha256 key input
-  let (hmacChunked, hmacChunkedNanos) ← timedHmac fun _ => chunkedHmac key (64 * 1024) input
-  IO.println s!"8 MiB SHA-256 one-shot update: {oneShotNanos} ns"
-  IO.println s!"8 MiB SHA-256 in 64 KiB chunks: {chunkedNanos} ns"
-  IO.println s!"8 MiB HMAC-SHA256 one-shot update: {hmacOneShotNanos} ns"
-  IO.println s!"8 MiB HMAC-SHA256 in 64 KiB chunks: {hmacChunkedNanos} ns"
-  if oneShot == chunked && hmacOneShot == hmacChunked then
+  let (hmacOneShot, hmacOneShotNanos) ← medianTime fun _ =>
+    (Crypto.HMAC.compute .sha256 key input).toByteArray
+  let (hmacChunked, hmacChunkedNanos) ← medianTime fun _ =>
+    (chunkedHmac key (64 * 1024) input).toByteArray
+  let (sha512OneShot, sha512OneShotNanos) ← medianTime fun _ =>
+    (Crypto.Hash.digest .sha512 input).toByteArray
+  let (sha512Chunked, sha512ChunkedNanos) ← medianTime fun _ =>
+    (chunkedDigest .sha512 (64 * 1024) input).toByteArray
+  let sha3Input := input.extract 0 (1024 * 1024)
+  let (sha3OneShot, sha3OneShotNanos) ← medianTime fun _ =>
+    (Crypto.Hash.digest .sha3_256 sha3Input).toByteArray
+  let (sha3Chunked, sha3ChunkedNanos) ← medianTime fun _ =>
+    (chunkedDigest .sha3_256 (64 * 1024) sha3Input).toByteArray
+  IO.println s!"8 MiB SHA-256 one-shot median: {oneShotNanos} ns"
+  IO.println s!"8 MiB SHA-256 chunked median: {chunkedNanos} ns"
+  IO.println s!"8 MiB HMAC-SHA256 one-shot median: {hmacOneShotNanos} ns"
+  IO.println s!"8 MiB HMAC-SHA256 chunked median: {hmacChunkedNanos} ns"
+  IO.println s!"8 MiB SHA-512 one-shot median: {sha512OneShotNanos} ns"
+  IO.println s!"8 MiB SHA-512 chunked median: {sha512ChunkedNanos} ns"
+  IO.println s!"1 MiB SHA3-256 one-shot median: {sha3OneShotNanos} ns"
+  IO.println s!"1 MiB SHA3-256 chunked median: {sha3ChunkedNanos} ns"
+  if oneShot == chunked && hmacOneShot == hmacChunked && sha512OneShot == sha512Chunked &&
+      sha3OneShot == sha3Chunked then
     IO.println "digests and tags agree"
     return 0
   else
