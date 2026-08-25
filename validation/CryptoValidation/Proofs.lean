@@ -65,6 +65,11 @@ theorem byteVector_beq_exact {n : Nat} (left right : Crypto.ByteVector n) :
     (left == right) = true ↔ left = right :=
   Crypto.ByteVector.beq_eq_true_iff left right
 
+theorem byteVector_equalWithoutEarlyExit_exact {n : Nat}
+    (left right : Crypto.ByteVector n) :
+    Crypto.ByteVector.equalWithoutEarlyExit left right = true ↔ left = right :=
+  Crypto.ByteVector.equalWithoutEarlyExit_eq_true_iff left right
+
 theorem hex_roundtrip (bytes : ByteArray) :
     Crypto.Hex.decode? (Crypto.Hex.encode bytes) = some bytes :=
   Crypto.Hex.decode_encode bytes
@@ -88,6 +93,11 @@ theorem byteVector_hex_roundtrip {n : Nat} (bytes : Crypto.ByteVector n) :
 theorem hmac_tag_size (algorithm : Crypto.HMAC.Algorithm) (key message : ByteArray) :
     (Crypto.HMAC.compute algorithm key message).toByteArray.size = algorithm.outputBytes :=
   Crypto.HMAC.size_compute algorithm key message
+
+theorem hmac_tag_equalWithoutEarlyExit_exact {algorithm : Crypto.HMAC.Algorithm}
+    (left right : Crypto.HMAC.Tag algorithm) :
+    Crypto.HMAC.Tag.equalWithoutEarlyExit left right = true ↔ left = right :=
+  Crypto.HMAC.Tag.equalWithoutEarlyExit_eq_true_iff left right
 
 theorem hmac_hex_length (algorithm : Crypto.HMAC.Algorithm) (key message : ByteArray) :
     (Crypto.HMAC.computeHex algorithm key message).length = algorithm.outputBytes * 2 :=

@@ -100,6 +100,11 @@ def hmacChunks (key : ByteArray) (chunks : List ByteArray) : Crypto.HMAC.Tag .sh
   (chunks.foldl Crypto.HMAC.Context.update (Crypto.HMAC.Context.init .sha512 key)).finalize
 ```
 
+Use `Crypto.HMAC.Tag.equalWithoutEarlyExit` when comparing two typed tags. It visits every byte
+without a source-level early exit and is proved equivalent to exact equality. It is intentionally
+not described as constant-time: Lean does not guarantee the timing behavior of generated code or
+the runtime, so applications requiring that guarantee need an audited lower-level implementation.
+
 SHAKE finalization produces an immutable output reader. Reading returns both statically sized
 bytes and the continuation cursor:
 
@@ -173,12 +178,19 @@ CI checks:
 - known-answer, incremental-equivalence, large-input, binary-I/O, and escaping tests;
 - vendored NIST SHA-1/SHA-2/SHA-3/SHAKE/HMAC response files;
 - algorithm, HMAC, and CLI differential checks against OpenSSL and GNU coreutils;
-- machine-checked output-size, hex, `ByteVector`, HMAC/chunking, padding, endian, and SHAKE
-  split-read laws.
+- machine-checked output-size, hex, `ByteVector` and no-early-exit comparison exactness,
+  HMAC/chunking, padding, endian, and SHAKE split-read laws.
 
 These are not a formal end-to-end proof of each compression function. The theorem inventory lives
 in [`validation/CryptoValidation/Proofs.lean`](validation/CryptoValidation/Proofs.lean), and the
 dependency policy is in [`validation/DEPENDENCIES.md`](validation/DEPENDENCIES.md).
+
+## Non-goals
+
+This project intentionally remains a byte-oriented hash, XOF, HMAC, hex, and checksum-tool
+package. Additional codecs such as Base32, Base64, and Base64URL are out of scope, as are RSA,
+DER/X.509 parsing, PEM handling, and certificate public-key extraction. Those features have
+different API and security boundaries and belong in separately scoped libraries.
 
 ## Compatibility and releases
 

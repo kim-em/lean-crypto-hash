@@ -103,6 +103,57 @@ instance : BEq (ByteVector n) where
 instance : Repr (ByteVector n) where
   reprPrec value _ := repr value.bytes.data.toList
 
+private theorem foldl_and_eq_true (accumulator : Bool) (values : List Bool) :
+    values.foldl Bool.and accumulator = true ↔
+      accumulator = true ∧ ∀ value ∈ values, value = true := by
+  induction values generalizing accumulator with
+  | nil => simp
+  | cons value values ih =>
+    rw [List.foldl_cons, ih]
+    simp only [Bool.and_eq_true, List.forall_mem_cons]
+    constructor
+    · rintro ⟨⟨accumulatorTrue, valueTrue⟩, valuesTrue⟩
+      exact ⟨accumulatorTrue, valueTrue, valuesTrue⟩
+    · rintro ⟨accumulatorTrue, valueTrue, valuesTrue⟩
+      exact ⟨⟨accumulatorTrue, valueTrue⟩, valuesTrue⟩
+
+private theorem compareLists_eq_true {left right : List UInt8}
+    (sameLength : left.length = right.length) :
+    (List.zipWith (fun x y => x == y) left right).foldl Bool.and true = true ↔
+      left = right := by
+  rw [foldl_and_eq_true]
+  simp only [true_and]
+  induction left generalizing right with
+  | nil =>
+    cases right with
+    | nil => simp
+    | cons rightHead rightTail => simp at sameLength
+  | cons leftHead leftTail ih =>
+    cases right with
+    | nil => simp at sameLength
+    | cons rightHead rightTail =>
+      simp only [List.zipWith, List.forall_mem_cons, beq_iff_eq]
+      simp only [List.length_cons] at sameLength
+      have tailLength : leftTail.length = rightTail.length := by omega
+      constructor
+      · rintro ⟨heads, tails⟩
+        subst rightHead
+        exact congrArg (leftHead :: ·) ((ih tailLength).mp tails)
+      · intro equal
+        cases equal
+        exact ⟨rfl, (ih rfl).mpr rfl⟩
+
+/--
+Compare every byte of two equally sized values without a source-level early exit.
+
+This is deliberately not called constant-time. Lean does not constrain compiler or runtime
+optimizations, machine instructions, caches, or branch prediction, so callers whose threat model
+requires a timing guarantee need an implementation whose generated execution is audited.
+-/
+def equalWithoutEarlyExit (left right : ByteVector n) : Bool :=
+  (List.zipWith (fun x y => x == y) left.bytes.data.toList right.bytes.data.toList).foldl
+    Bool.and true
+
 @[simp] theorem beq_eq_true_iff (left right : ByteVector n) :
     (left == right) = true ↔ left = right := by
   change (left.bytes.data == right.bytes.data) = true ↔ left = right
@@ -111,6 +162,15 @@ instance : Repr (ByteVector n) where
   · intro h
     exact ext (congrArg ByteArray.mk h)
   · exact fun h => congrArg (fun value => value.bytes.data) h
+
+@[simp] theorem equalWithoutEarlyExit_eq_true_iff (left right : ByteVector n) :
+    equalWithoutEarlyExit left right = true ↔ left = right := by
+  rw [equalWithoutEarlyExit, compareLists_eq_true (by simp [left.size_eq, right.size_eq])]
+  constructor
+  · exact fun h => ext (congrArg ByteArray.mk (Array.ext' h))
+  · intro h
+    cases h
+    rfl
 
 theorem length_toHex (value : ByteVector n) : value.toHex.length = n * 2 := by
   simp [toHex, value.size_eq]

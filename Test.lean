@@ -58,6 +58,15 @@ private def hmacExpected (key message : ByteArray)
 private def hmacAlgorithms : List Crypto.HMAC.Algorithm :=
   [.sha224, .sha256, .sha384, .sha512]
 
+private def byteVectorComparisonCheck : Bool :=
+  match Crypto.ByteVector.ofHex? 3 "001122", Crypto.ByteVector.ofHex? 3 "ff1122",
+      Crypto.ByteVector.ofHex? 3 "0011ff" with
+  | some expected, some firstDifferent, some lastDifferent =>
+      expected.equalWithoutEarlyExit expected &&
+        !expected.equalWithoutEarlyExit firstDifferent &&
+        !expected.equalWithoutEarlyExit lastDifferent
+  | _, _, _ => false
+
 private def rfc4231Checks : List (String × Bool) :=
   [ ("RFC 4231 case 1", hmacExpected (repeatedByte 0x0b 20) "Hi There".toUTF8
       [(.sha224, "896fb1128abbdf196832107cd49df33f47b4b1169912ba4f53684b22"),
@@ -194,7 +203,10 @@ private def checks : List (String × Bool) :=
     ("hex rejects malformed input", Crypto.Hex.decode? "0" == none &&
       Crypto.Hex.decode? "0x00" == none && Crypto.Hex.decode? "00 ff" == none),
     ("sized hex rejects wrong length", Crypto.ByteVector.ofHex? 2 "00" == none) ] ++
-    [("HMAC empty key and message", emptyHmacCheck),
+    [("ByteVector comparison without early exit", byteVectorComparisonCheck),
+     ("HMAC tag comparison without early exit", let tag := Crypto.HMAC.compute .sha256 binary long
+       Crypto.HMAC.Tag.equalWithoutEarlyExit tag tag),
+     ("HMAC empty key and message", emptyHmacCheck),
      ("HMAC incremental contexts", hmacAlgorithms.all fun algorithm =>
        Crypto.HMAC.computeChunks algorithm binary (chunks long) ==
          Crypto.HMAC.compute algorithm binary long)] ++ rfc4231Checks
