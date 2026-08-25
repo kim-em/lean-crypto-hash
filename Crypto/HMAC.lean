@@ -43,6 +43,23 @@ end Algorithm
 /-- A statically sized HMAC authentication tag. -/
 abbrev Tag (algorithm : Algorithm) := Crypto.Hash.Digest algorithm.toHashAlgorithm
 
+namespace Tag
+
+/--
+Compare every byte of two full-sized HMAC tags without a source-level early exit.
+
+This forwards to `ByteVector.equalWithoutEarlyExit` and likewise does not claim constant-time
+execution. Both arguments are typed tags, so their equal length needs no runtime check.
+-/
+def equalWithoutEarlyExit {algorithm : Algorithm} (left right : Tag algorithm) : Bool :=
+  Crypto.ByteVector.equalWithoutEarlyExit left right
+
+@[simp] theorem equalWithoutEarlyExit_eq_true_iff {algorithm : Algorithm}
+    (left right : Tag algorithm) : equalWithoutEarlyExit left right = true ↔ left = right :=
+  Crypto.ByteVector.equalWithoutEarlyExit_eq_true_iff left right
+
+end Tag
+
 private def repeatedByte (byte : UInt8) (count : Nat) : ByteArray :=
   ByteArray.mk (Array.replicate count byte)
 
