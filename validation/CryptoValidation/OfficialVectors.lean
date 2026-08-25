@@ -74,6 +74,8 @@ private def suites : List Suite :=
     ⟨"SHA-256", "SHA256ShortMsg.rsp", .fixed .sha256, 65⟩,
     ⟨"SHA-384", "SHA384ShortMsg.rsp", .fixed .sha384, 129⟩,
     ⟨"SHA-512", "SHA512ShortMsg.rsp", .fixed .sha512, 129⟩,
+    ⟨"SHA-512/224", "SHA512_224ShortMsg.rsp", .fixed .sha512_224, 129⟩,
+    ⟨"SHA-512/256", "SHA512_256ShortMsg.rsp", .fixed .sha512_256, 129⟩,
     ⟨"SHA3-224", "SHA3_224ShortMsg.rsp", .fixed .sha3_224, 145⟩,
     ⟨"SHA3-256", "SHA3_256ShortMsg.rsp", .fixed .sha3_256, 137⟩,
     ⟨"SHA3-384", "SHA3_384ShortMsg.rsp", .fixed .sha3_384, 105⟩,

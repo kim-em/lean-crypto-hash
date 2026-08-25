@@ -62,6 +62,11 @@ def append (left : ByteVector m) (right : ByteVector n) : ByteVector (m + n) :=
   { bytes := left.bytes ++ right.bytes
     size_eq := by simp [left.size_eq, right.size_eq] }
 
+/-- Keep the first `count` bytes of a statically sized byte array. -/
+def take (value : ByteVector n) (count : Nat) (h : count ≤ n) : ByteVector count :=
+  { bytes := value.bytes.extract 0 count
+    size_eq := by simp [ByteArray.size_extract, value.size_eq, h] }
+
 def ofUInt32BE (words : Vector UInt32 n) : ByteVector (n * 4) :=
   ofVector <| Vector.ofFn fun i =>
     have wordIndex : i.val / 4 < n := by omega
@@ -91,6 +96,9 @@ theorem ext {left right : ByteVector n} (h : left.bytes = right.bytes) : left = 
 
 @[simp] theorem toByteArray_append (left : ByteVector m) (right : ByteVector n) :
     (left.append right).toByteArray = left.toByteArray ++ right.toByteArray := rfl
+
+@[simp] theorem toByteArray_take (value : ByteVector n) (count : Nat) (h : count ≤ n) :
+    (value.take count h).toByteArray = value.toByteArray.extract 0 count := rfl
 
 @[simp] theorem ofVector_append (left : Vector UInt8 m) (right : Vector UInt8 n) :
     (ofVector left).append (ofVector right) = ofVector (left ++ right) := by

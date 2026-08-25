@@ -57,6 +57,18 @@ for tool in "${tools[@]}"; do
   "$system_tool" --check "$test_root/lean.check" >/dev/null
 done
 
+for variant in 224 256; do
+  lean_tool="$tool_root/sha512_${variant}sum"
+  printf '\000\377abc\200\012\000' | "$lean_tool" | cut -d' ' -f1 > "$test_root/sha512t.out"
+  printf '\000\377abc\200\012\000' |
+    openssl dgst "-sha512-$variant" -binary | od -An -v -tx1 | tr -d ' \n' > "$test_root/openssl.out"
+  printf '\n' >> "$test_root/openssl.out"
+  cmp "$test_root/sha512t.out" "$test_root/openssl.out"
+
+  "$lean_tool" "$test_root/binary" > "$test_root/sha512t.check"
+  "$lean_tool" --check "$test_root/sha512t.check" >/dev/null
+done
+
 printf '\000\377abc\200\012\000' | "$tool_root/sha256sum" > "$test_root/stdin.out"
 printf '\000\377abc\200\012\000' | sha256sum > "$test_root/system-stdin.out"
 cmp "$test_root/stdin.out" "$test_root/system-stdin.out"

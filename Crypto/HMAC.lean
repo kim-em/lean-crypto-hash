@@ -15,7 +15,7 @@ namespace Crypto.HMAC
 
 /-- SHA-2 algorithms supported by HMAC. -/
 public inductive Algorithm where
-  | sha224 | sha256 | sha384 | sha512
+  | sha224 | sha256 | sha384 | sha512 | sha512_224 | sha512_256
   deriving BEq, Repr
 
 namespace Algorithm
@@ -25,6 +25,8 @@ def toHashAlgorithm : Algorithm → Crypto.Hash.Algorithm
   | .sha256 => .sha256
   | .sha384 => .sha384
   | .sha512 => .sha512
+  | .sha512_224 => .sha512_224
+  | .sha512_256 => .sha512_256
 
 def outputBytes (algorithm : Algorithm) : Nat := algorithm.toHashAlgorithm.outputBytes
 
@@ -33,10 +35,12 @@ def name : Algorithm → String
   | .sha256 => "HMAC-SHA256"
   | .sha384 => "HMAC-SHA384"
   | .sha512 => "HMAC-SHA512"
+  | .sha512_224 => "HMAC-SHA512/224"
+  | .sha512_256 => "HMAC-SHA512/256"
 
 private def blockBytes : Algorithm → Nat
   | .sha224 | .sha256 => 64
-  | .sha384 | .sha512 => 128
+  | .sha384 | .sha512 | .sha512_224 | .sha512_256 => 128
 
 end Algorithm
 
@@ -84,6 +88,10 @@ private inductive ContextRepresentation : Algorithm → Type where
       ContextRepresentation .sha384
   | sha512 (inner : Crypto.Hash.Context .sha512) (outerPad : ByteArray) :
       ContextRepresentation .sha512
+  | sha512_224 (inner : Crypto.Hash.Context .sha512_224) (outerPad : ByteArray) :
+      ContextRepresentation .sha512_224
+  | sha512_256 (inner : Crypto.Hash.Context .sha512_256) (outerPad : ByteArray) :
+      ContextRepresentation .sha512_256
 
 /-- An immutable incremental HMAC computation indexed by its SHA-2 algorithm. -/
 public structure Context (algorithm : Algorithm) where
@@ -102,6 +110,10 @@ def init (algorithm : Algorithm) (key : ByteArray) : Context algorithm :=
   | .sha256 => ⟨.sha256 (Crypto.Hash.Context.init .sha256 |>.update innerPad) outerPad⟩
   | .sha384 => ⟨.sha384 (Crypto.Hash.Context.init .sha384 |>.update innerPad) outerPad⟩
   | .sha512 => ⟨.sha512 (Crypto.Hash.Context.init .sha512 |>.update innerPad) outerPad⟩
+  | .sha512_224 => ⟨.sha512_224
+      (Crypto.Hash.Context.init .sha512_224 |>.update innerPad) outerPad⟩
+  | .sha512_256 => ⟨.sha512_256
+      (Crypto.Hash.Context.init .sha512_256 |>.update innerPad) outerPad⟩
 
 /-- Absorb another message chunk. -/
 def update (context : Context algorithm) (input : ByteArray) : Context algorithm :=
@@ -110,6 +122,8 @@ def update (context : Context algorithm) (input : ByteArray) : Context algorithm
   | .sha256 inner outer => ⟨.sha256 (inner.update input) outer⟩
   | .sha384 inner outer => ⟨.sha384 (inner.update input) outer⟩
   | .sha512 inner outer => ⟨.sha512 (inner.update input) outer⟩
+  | .sha512_224 inner outer => ⟨.sha512_224 (inner.update input) outer⟩
+  | .sha512_256 inner outer => ⟨.sha512_256 (inner.update input) outer⟩
 
 @[simp] theorem update_empty (context : Context algorithm) :
     context.update ByteArray.empty = context := by
@@ -124,6 +138,8 @@ theorem update_append (context : Context algorithm) (left right : ByteArray) :
   | sha256 inner outer => simpa [update] using inner.update_append left right
   | sha384 inner outer => simpa [update] using inner.update_append left right
   | sha512 inner outer => simpa [update] using inner.update_append left right
+  | sha512_224 inner outer => simpa [update] using inner.update_append left right
+  | sha512_256 inner outer => simpa [update] using inner.update_append left right
 
 def updateChunks (context : Context algorithm) : List ByteArray → Context algorithm
   | [] => context
@@ -149,6 +165,10 @@ def finalize (context : Context algorithm) : Tag algorithm :=
     Crypto.Hash.digest .sha384 (outer ++ inner.finalize.toByteArray)
   | .sha512 inner outer =>
     Crypto.Hash.digest .sha512 (outer ++ inner.finalize.toByteArray)
+  | .sha512_224 inner outer =>
+    Crypto.Hash.digest .sha512_224 (outer ++ inner.finalize.toByteArray)
+  | .sha512_256 inner outer =>
+    Crypto.Hash.digest .sha512_256 (outer ++ inner.finalize.toByteArray)
 
 def finalizeHex (context : Context algorithm) : String := context.finalize.toHex
 

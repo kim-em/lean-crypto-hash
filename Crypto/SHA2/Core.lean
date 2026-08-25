@@ -15,8 +15,8 @@ public section
 
 /-! # SHA-2 Core Implementation
 
-This module contains the core SHA-2 algorithm implementations,
-including compression functions and hash computation for SHA-256, SHA-224, SHA-512, and SHA-384.
+This module contains the SHA-256-family and SHA-512-family compression functions and incremental
+contexts used by SHA-224, SHA-256, SHA-384, SHA-512, SHA-512/224, and SHA-512/256.
 -/
 
 namespace Crypto.Hash.Internal
@@ -212,7 +212,7 @@ def compressBlock (hash : Vector UInt64 8) (block : Vector UInt64 16) : Vector U
   #v[hash[0] + a, hash[1] + b, hash[2] + c, hash[3] + d,
     hash[4] + e, hash[5] + f, hash[6] + g, hash[7] + h]
 
-/-- Incremental SHA-384/SHA-512 state. -/
+/-- Incremental state shared by SHA-384, SHA-512, SHA-512/224, and SHA-512/256. -/
 @[ext] public structure Context where
   state : Vector UInt64 8
   buffer : ByteArray

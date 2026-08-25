@@ -23,7 +23,8 @@ debfebc3157b3ceea002b84ca38476420389a3bf7e97dc5f53ea4689a16de4c7  shakebytetestv
 418c3837d38f249d6668146bd0090db24dd3c02d2e6797e3de33860a387ae4bd  hmactestvectors.zip
 ```
 
-Only short-message response files were extracted for fixed-output hashes. SHAKE also
+Only short-message response files were extracted for fixed-output hashes, including the
+SHA-512/224 and SHA-512/256 suites. SHAKE also
 includes the variable-output suites. The runner skips bit-oriented records whose input or
 output length is not a multiple of eight because the library API is byte-oriented.
 

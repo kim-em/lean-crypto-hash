@@ -10,10 +10,10 @@ security-sensitive applications should use SHA-256, SHA-512, SHA-3, or SHAKE as 
 ## Algorithms
 
 - MD5 and SHA-1 (legacy only)
-- SHA-224, SHA-256, SHA-384, and SHA-512
+- SHA-224, SHA-256, SHA-384, SHA-512, SHA-512/224, and SHA-512/256
 - SHA3-224, SHA3-256, SHA3-384, and SHA3-512
 - SHAKE128 and SHAKE256 with byte-sized variable output
-- HMAC-SHA224, HMAC-SHA256, HMAC-SHA384, and HMAC-SHA512
+- HMAC over all six SHA-2 variants above
 
 ## Package boundary
 
@@ -49,7 +49,7 @@ lake exe official-vectors
 lake test
 ```
 
-`official-vectors` runs 5,170 byte-oriented cases from vendored NIST CAVP response files,
+`official-vectors` runs 5,428 byte-oriented cases from vendored NIST CAVP response files,
 including 1,275 HMAC-SHA-2 cases. `lake test` also compares hashes, HMAC, and CLI behavior with
 OpenSSL and a verified build of GNU coreutils 9.11. Provenance is recorded in
 [`validation/vectors/README.md`](validation/vectors/README.md).
@@ -143,6 +143,7 @@ Building the root package produces:
 
 ```text
 md5sum sha1sum sha224sum sha256sum sha384sum sha512sum
+sha512_224sum sha512_256sum
 sha3_224sum sha3_256sum sha3_384sum sha3_512sum
 shake128sum shake256sum
 ```

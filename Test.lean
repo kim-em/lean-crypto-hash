@@ -42,7 +42,7 @@ private def streamedXof (algorithm : XofAlgorithm) (outputBytes : Nat)
   (context.finalize.read outputBytes).1.toHex
 
 private def fixedAlgorithms : List Algorithm :=
-  [.md5, .sha1, .sha224, .sha256, .sha384, .sha512,
+  [.md5, .sha1, .sha224, .sha256, .sha384, .sha512, .sha512_224, .sha512_256,
     .sha3_224, .sha3_256, .sha3_384, .sha3_512]
 
 private def repeatedByte (byte : UInt8) (count : Nat) : ByteArray :=
@@ -56,7 +56,12 @@ private def hmacExpected (key message : ByteArray)
   expected.all fun (algorithm, tag) => Crypto.HMAC.computeHex algorithm key message == tag
 
 private def hmacAlgorithms : List Crypto.HMAC.Algorithm :=
-  [.sha224, .sha256, .sha384, .sha512]
+  [.sha224, .sha256, .sha384, .sha512, .sha512_224, .sha512_256]
+
+private def sha512TruncatedHmacCheck : Bool :=
+  hmacExpected "Jefe".toUTF8 "what do ya want for nothing?".toUTF8
+    [(.sha512_224, "4a530b31a79ebcce36916546317c45f247d83241dfb818fd37254bde"),
+     (.sha512_256, "6df7b24630d5ccb2ee335407081a87188c221489768fa2020513b2d593359456")]
 
 private def byteVectorComparisonCheck : Bool :=
   match Crypto.ByteVector.ofHex? 3 "001122", Crypto.ByteVector.ofHex? 3 "ff1122",
@@ -148,6 +153,10 @@ private def checks : List (String × Bool) :=
     ("SHA-512", digestHex .sha512 abc ==
       "ddaf35a193617abacc417349ae20413112e6fa4e89a97ea20a9eeee64b55d39a" ++
       "2192992a274fc1a836ba3c23a3feebbd454d4423643ce80e2a9ac94fa54ca49f"),
+    ("SHA-512/224", digestHex .sha512_224 abc ==
+      "4634270f707b6a54daae7530460842e20e37ed265ceee9a43e8924aa"),
+    ("SHA-512/256", digestHex .sha512_256 abc ==
+      "53048e2681941ef99b2e29b76b4c7dabe4c2d0c634fc6d46e0e2f13107e7af23"),
     ("SHA3-224", digestHex .sha3_224 abc ==
       "e642824c3f8cf24ad09234ee7d3c766fc9a3a5168d0c94ad73b46fdf"),
     ("SHA3-256", digestHex .sha3_256 abc ==
@@ -207,6 +216,7 @@ private def checks : List (String × Bool) :=
      ("HMAC tag comparison without early exit", let tag := Crypto.HMAC.compute .sha256 binary long
        Crypto.HMAC.Tag.equalWithoutEarlyExit tag tag),
      ("HMAC empty key and message", emptyHmacCheck),
+     ("HMAC-SHA-512 truncated variants", sha512TruncatedHmacCheck),
      ("HMAC incremental contexts", hmacAlgorithms.all fun algorithm =>
        Crypto.HMAC.computeChunks algorithm binary (chunks long) ==
          Crypto.HMAC.compute algorithm binary long)] ++ rfc4231Checks
