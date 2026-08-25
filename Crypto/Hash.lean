@@ -20,7 +20,7 @@ namespace Crypto.Hash
 
 /-- Fixed-output hash algorithms supported by the library. -/
 public inductive Algorithm where
-  | md5 | sha1 | sha224 | sha256 | sha384 | sha512
+  | md5 | sha1 | sha224 | sha256 | sha384 | sha512 | sha512_224 | sha512_256
   | sha3_224 | sha3_256 | sha3_384 | sha3_512
   deriving BEq, Repr
 
@@ -29,8 +29,8 @@ namespace Algorithm
 def outputBytes : Algorithm → Nat
   | .md5 => 16
   | .sha1 => 20
-  | .sha224 | .sha3_224 => 28
-  | .sha256 | .sha3_256 => 32
+  | .sha224 | .sha512_224 | .sha3_224 => 28
+  | .sha256 | .sha512_256 | .sha3_256 => 32
   | .sha384 | .sha3_384 => 48
   | .sha512 | .sha3_512 => 64
 
@@ -41,6 +41,8 @@ def name : Algorithm → String
   | .sha256 => "SHA256"
   | .sha384 => "SHA384"
   | .sha512 => "SHA512"
+  | .sha512_224 => "SHA512/224"
+  | .sha512_256 => "SHA512/256"
   | .sha3_224 => "SHA3-224"
   | .sha3_256 => "SHA3-256"
   | .sha3_384 => "SHA3-384"
@@ -58,6 +60,8 @@ private inductive ContextRepresentation : Algorithm → Type where
   | sha256 (context : Crypto.Hash.Internal.SHA256.Context) : ContextRepresentation .sha256
   | sha384 (context : Crypto.Hash.Internal.SHA512.Context) : ContextRepresentation .sha384
   | sha512 (context : Crypto.Hash.Internal.SHA512.Context) : ContextRepresentation .sha512
+  | sha512_224 (context : Crypto.Hash.Internal.SHA512.Context) : ContextRepresentation .sha512_224
+  | sha512_256 (context : Crypto.Hash.Internal.SHA512.Context) : ContextRepresentation .sha512_256
   | sha3_224 (context : Crypto.Hash.Internal.SHA3.Context) : ContextRepresentation .sha3_224
   | sha3_256 (context : Crypto.Hash.Internal.SHA3.Context) : ContextRepresentation .sha3_256
   | sha3_384 (context : Crypto.Hash.Internal.SHA3.Context) : ContextRepresentation .sha3_384
@@ -81,6 +85,10 @@ def init (algorithm : Algorithm) : Context algorithm :=
   | .sha256 => ⟨.sha256 (Crypto.Hash.Internal.SHA256.Context.init Crypto.Hash.Internal.SHA256.H0)⟩
   | .sha384 => ⟨.sha384 (Crypto.Hash.Internal.SHA512.Context.init Crypto.Hash.Internal.SHA384.H0)⟩
   | .sha512 => ⟨.sha512 (Crypto.Hash.Internal.SHA512.Context.init Crypto.Hash.Internal.SHA512.H0)⟩
+  | .sha512_224 => ⟨.sha512_224 (Crypto.Hash.Internal.SHA512.Context.init
+      Crypto.Hash.Internal.SHA512_224.H0)⟩
+  | .sha512_256 => ⟨.sha512_256 (Crypto.Hash.Internal.SHA512.Context.init
+      Crypto.Hash.Internal.SHA512_256.H0)⟩
   | .sha3_224 => ⟨.sha3_224 (Crypto.Hash.Internal.SHA3.Context.init
       Crypto.Hash.Internal.SHA3.sha3_224_params Crypto.Hash.Internal.SHA3.sha3_suffix)⟩
   | .sha3_256 => ⟨.sha3_256 (Crypto.Hash.Internal.SHA3.Context.init
@@ -98,6 +106,8 @@ def update (context : Context algorithm) (input : ByteArray) : Context algorithm
   | .sha256 c => ⟨.sha256 (c.update input)⟩
   | .sha384 c => ⟨.sha384 (c.update input)⟩
   | .sha512 c => ⟨.sha512 (c.update input)⟩
+  | .sha512_224 c => ⟨.sha512_224 (c.update input)⟩
+  | .sha512_256 c => ⟨.sha512_256 (c.update input)⟩
   | .sha3_224 c => ⟨.sha3_224 (c.update input)⟩
   | .sha3_256 c => ⟨.sha3_256 (c.update input)⟩
   | .sha3_384 c => ⟨.sha3_384 (c.update input)⟩
@@ -118,6 +128,8 @@ theorem update_append (context : Context algorithm) (left right : ByteArray) :
   | sha256 context => simpa [update] using context.update_append left right
   | sha384 context => simpa [update] using context.update_append left right
   | sha512 context => simpa [update] using context.update_append left right
+  | sha512_224 context => simpa [update] using context.update_append left right
+  | sha512_256 context => simpa [update] using context.update_append left right
   | sha3_224 context => simpa [update] using context.update_append left right
   | sha3_256 context => simpa [update] using context.update_append left right
   | sha3_384 context => simpa [update] using context.update_append left right
@@ -147,6 +159,8 @@ def finalize (context : Context algorithm) : Digest algorithm :=
   | .sha256 c => Crypto.ByteVector.ofUInt32BE c.finalize
   | .sha384 c => Crypto.ByteVector.ofUInt64BE (c.finalize.take 6)
   | .sha512 c => Crypto.ByteVector.ofUInt64BE c.finalize
+  | .sha512_224 c => (Crypto.ByteVector.ofUInt64BE (c.finalize.take 4)).take 28 (by decide)
+  | .sha512_256 c => Crypto.ByteVector.ofUInt64BE (c.finalize.take 4)
   | .sha3_224 c => (c.finalize.read 28).1
   | .sha3_256 c => (c.finalize.read 32).1
   | .sha3_384 c => (c.finalize.read 48).1

@@ -22,6 +22,8 @@ private def algorithmTool : Algorithm → String
   | .sha256 => "sha256sum"
   | .sha384 => "sha384sum"
   | .sha512 => "sha512sum"
+  | .sha512_224 => "sha512_224sum"
+  | .sha512_256 => "sha512_256sum"
   | .sha3_224 => "sha3_224sum"
   | .sha3_256 => "sha3_256sum"
   | .sha3_384 => "sha3_384sum"
@@ -113,15 +115,36 @@ def getSystemSHAKESum (variant : String) (length : Nat) (input : String) : IO St
   else
     throw (IO.userError s!"Unexpected openssl SHAKE-{variant} output format")
 
+private def testSHA512TruncatedAgainstOpenSSL (algorithm : Algorithm) (variant : String)
+    (input description : String) : IO Bool := do
+  let output ← IO.Process.run {
+    cmd := "openssl"
+    args := #["dgst", s!"-sha512-{variant}"]
+  } input
+  let parts := output.trimAscii.toString.splitOn "= "
+  if parts.length < 2 then
+    IO.eprintln s!"FAILED {algorithm.name} {description}: unexpected OpenSSL output"
+    return false
+  let expected := parts[1]!.trimAscii.toString.toLower
+  let actual := Crypto.Hash.digestHex algorithm input.toUTF8
+  let success := actual == expected
+  if success then
+    IO.println s!"✓ {algorithm.name} {description}"
+  else
+    IO.eprintln s!"FAILED {algorithm.name} {description}: expected {expected}, got {actual}"
+  return success
+
 private def hmacOpenSSLName : Crypto.HMAC.Algorithm → String
   | .sha224 => "sha224"
   | .sha256 => "sha256"
   | .sha384 => "sha384"
   | .sha512 => "sha512"
+  | .sha512_224 => "sha512-224"
+  | .sha512_256 => "sha512-256"
 
 private def hmacBlockBytes : Crypto.HMAC.Algorithm → Nat
   | .sha224 | .sha256 => 64
-  | .sha384 | .sha512 => 128
+  | .sha384 | .sha512 | .sha512_224 | .sha512_256 => 128
 
 private def patternedBytes (size salt : Nat) : ByteArray :=
   ByteArray.mk <| Array.ofFn fun i : Fin size => (i.val * 37 + salt).toUInt8
@@ -831,8 +854,14 @@ def runTests (args : List String := []) : IO Unit := do
   ]
 
   IO.println "=== Testing HMAC-SHA-2 against OpenSSL ==="
-  let hmacResults ← ([.sha224, .sha256, .sha384, .sha512] : List Crypto.HMAC.Algorithm)
+  let hmacResults ← ([.sha224, .sha256, .sha384, .sha512, .sha512_224, .sha512_256] :
+      List Crypto.HMAC.Algorithm)
     |>.mapM runHmacOracleTests
+
+  IO.println "\n=== Testing SHA-512 truncated variants against OpenSSL ==="
+  let sha512TruncatedResults ← [(.sha512_224, "224"), (.sha512_256, "256")]
+    |>.mapM fun (algorithm, variant) => parallelMapM <| testCases.map fun (input, description) =>
+      testSHA512TruncatedAgainstOpenSSL algorithm variant input description
 
   -- Test MD5 algorithm against system md5sum
   IO.println "=== Testing MD5 algorithm against system md5sum ==="
@@ -1056,6 +1085,7 @@ def runTests (args : List String := []) : IO Unit := do
 
   let allTestsPassed := md5Results.all (· == true) &&
                         hmacResults.all (fun results => results.all (· == true)) &&
+                        sha512TruncatedResults.all (fun results => results.all (· == true)) &&
                         sha1Results.all (· == true) &&
                         sha3_224Results.all (· == true) &&
                         sha3_256Results.all (· == true) &&

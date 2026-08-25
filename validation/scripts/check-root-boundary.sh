@@ -16,6 +16,7 @@ fi
 
 if grep -REn '@\[extern|foreign import|IO\.Process|Std\.Net|IO\.net' Crypto Crypto.lean Test.lean \
     md5sum.lean sha1sum.lean sha224sum.lean sha256sum.lean sha384sum.lean sha512sum.lean \
+    sha512_224sum.lean sha512_256sum.lean \
     sha3_224sum.lean sha3_256sum.lean sha3_384sum.lean sha3_512sum.lean \
     shake128sum.lean shake256sum.lean; then
   echo 'root package contains FFI or external-process code' >&2

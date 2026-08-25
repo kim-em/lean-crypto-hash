@@ -80,6 +80,26 @@ def H0 : Vector UInt64 8 := #v[
 
 end SHA512
 
+namespace SHA512_224
+
+/-- SHA-512/224 initial hash values as specified in FIPS 180-4. -/
+def H0 : Vector UInt64 8 := #v[
+  0x8c3d37c819544da2, 0x73e1996689dcd4d6, 0x1dfab7ae32ff9c82, 0x679dd514582f9fcf,
+  0x0f6d2b697bd44da8, 0x77e36f7304c48942, 0x3f9d85a86a1d36c8, 0x1112e6ad91d692a1
+]
+
+end SHA512_224
+
+namespace SHA512_256
+
+/-- SHA-512/256 initial hash values as specified in FIPS 180-4. -/
+def H0 : Vector UInt64 8 := #v[
+  0x22312194fc2bf72c, 0x9f555fa3c84c64c2, 0x2393b86b6f53b151, 0x963877195940eabd,
+  0x96283ee2a88effe3, 0xbe5e1e2553863992, 0x2b0199fc2c85b8aa, 0x0eb72ddc81c52ca2
+]
+
+end SHA512_256
+
 namespace SHA384
 
 /-- SHA-384 initial hash values - different from SHA-512. -/

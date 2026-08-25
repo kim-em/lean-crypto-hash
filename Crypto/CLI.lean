@@ -21,6 +21,8 @@ private def fixedTool : Hash.Algorithm → String
   | .sha256 => "sha256sum"
   | .sha384 => "sha384sum"
   | .sha512 => "sha512sum"
+  | .sha512_224 => "sha512_224sum"
+  | .sha512_256 => "sha512_256sum"
   | .sha3_224 => "sha3_224sum"
   | .sha3_256 => "sha3_256sum"
   | .sha3_384 => "sha3_384sum"
