@@ -49,9 +49,9 @@ lake exe official-vectors
 lake test
 ```
 
-`official-vectors` runs 5,428 byte-oriented cases from vendored NIST CAVP response files,
-including 1,275 HMAC-SHA-2 cases. `lake test` also compares hashes, HMAC, and CLI behavior with
-OpenSSL and a verified build of GNU coreutils 9.11. Provenance is recorded in
+`official-vectors` checks 8,332 byte-oriented response records or Monte Carlo checkpoints from
+vendored NIST CAVP and ACVP files, including 1,575 HMAC-SHA-2 cases. `lake test` also compares
+hashes, HMAC, and CLI behavior with OpenSSL and a verified build of GNU coreutils 9.11. Provenance is recorded in
 [`validation/vectors/README.md`](validation/vectors/README.md).
 
 ## Library API
@@ -121,11 +121,13 @@ See [`MIGRATION.md`](MIGRATION.md) for replacements for the removed global `Stri
 
 ### Streaming contract
 
-Each context retains less than one algorithm block. `update` folds across the caller's bytes and
-compresses every completed block immediately; it does not concatenate the buffered suffix with
-the complete input or first materialize a list of blocks. Memory retained by a context is thus
-constant in the total message size. SHAKE output is generated in one pass, with only the current
-Keccak state and requested output buffer retained.
+Each context retains less than one algorithm block. `update` compresses each completed block
+immediately and retains only the final suffix; it does not concatenate the buffered suffix with
+the complete input or materialize a list of blocks. A bounded-slice block-wise implementation is
+proved equal to the byte-fold specification. The benchmark keeps implementation selection
+evidence-based; on the pinned Lean toolchain the specialized fold is faster, so it remains the
+compiled path. Memory retained by a context is constant in the total message size. SHAKE output
+is generated in one pass, with only the current Keccak state and requested output buffer retained.
 
 `Context.update_append`, `digestChunks_eq_digest_join`, the corresponding HMAC and XOF theorems,
 and `XofReader.read_add` formally connect chunked operations to their one-shot forms. The
@@ -175,7 +177,8 @@ package version.
 CI checks:
 
 - dependency, FFI, native-source, toolchain, and library/CLI isolation;
-- warning-free root and downstream builds;
+- warning-free root builds and hermetic tests on Linux, macOS, and Windows;
+- warning-free downstream builds and external-oracle tests on Linux;
 - known-answer, incremental-equivalence, large-input, binary-I/O, and escaping tests;
 - vendored NIST SHA-1/SHA-2/SHA-3/SHAKE/HMAC response files;
 - algorithm, HMAC, and CLI differential checks against OpenSSL and GNU coreutils;
