@@ -1,0 +1,613 @@
+{
+  "vsId": 0,
+  "algorithm": "HMAC-SHA2-512/224",
+  "revision": "2.0",
+  "isSample": false,
+  "testGroups": [
+    {
+      "tgId": 1,
+      "tests": [
+        {
+          "tcId": 1,
+          "mac": "03C19921809330DB2295"
+        },
+        {
+          "tcId": 2,
+          "mac": "3325213B82EB7727A93D26C3208F52938999"
+        },
+        {
+          "tcId": 3,
+          "mac": "400FBF70875695B720CF5164B360FA46266B0B"
+        },
+        {
+          "tcId": 4,
+          "mac": "714A010B35FBA95027738625A2EDA8"
+        },
+        {
+          "tcId": 5,
+          "mac": "C48A8405D2686FAC5510"
+        },
+        {
+          "tcId": 6,
+          "mac": "B9D6B2403C533A9D36445D3DED97"
+        },
+        {
+          "tcId": 7,
+          "mac": "211B2E578FB50D9063A60CAA6E956FC68D"
+        },
+        {
+          "tcId": 8,
+          "mac": "71C4AD99AA0EA626FB3226"
+        },
+        {
+          "tcId": 9,
+          "mac": "BD162AD96C12D5C5560E75DB9B"
+        },
+        {
+          "tcId": 10,
+          "mac": "AE9096DD2066A62EE78CD080"
+        },
+        {
+          "tcId": 11,
+          "mac": "CB4896E08A7DB4014D533E97A962E54A2F5CBCB2"
+        },
+        {
+          "tcId": 12,
+          "mac": "269DFBF99D7604B3A33AA2C5C48CBFC2206B8C8B"
+        },
+        {
+          "tcId": 13,
+          "mac": "34E7E70DFF4C2A5441FCA52C"
+        },
+        {
+          "tcId": 14,
+          "mac": "7FB0344B39478584DBBE916D09FA"
+        },
+        {
+          "tcId": 15,
+          "mac": "E461037E36AC71CB91F6A243A3734B4F1ED5CD95"
+        },
+        {
+          "tcId": 16,
+          "mac": "A84B6B832C7C17C5160A63CC37A3A4C19B"
+        },
+        {
+          "tcId": 17,
+          "mac": "D0DF029542F681E3AFFB19459B4E"
+        },
+        {
+          "tcId": 18,
+          "mac": "FD808D96A0DC720D363A4D5996"
+        },
+        {
+          "tcId": 19,
+          "mac": "D78F98E3C25C5A188C88"
+        },
+        {
+          "tcId": 20,
+          "mac": "E55053ECEC991874A22DCEBE5E190F05"
+        },
+        {
+          "tcId": 21,
+          "mac": "986FBF0819FEA2A5EC98DA8A421FF6"
+        },
+        {
+          "tcId": 22,
+          "mac": "7B4DA38836227D210620FF"
+        },
+        {
+          "tcId": 23,
+          "mac": "B115A3BAB80B535DFB96F416AB"
+        },
+        {
+          "tcId": 24,
+          "mac": "266A4DD174F1F06C3B047FE7"
+        },
+        {
+          "tcId": 25,
+          "mac": "B537AFA31546BB7656A7F497C8EC6CDB5A45"
+        },
+        {
+          "tcId": 26,
+          "mac": "0ECDBA8D617AC17DDB12DE206AD553EEC1F515D8"
+        },
+        {
+          "tcId": 27,
+          "mac": "676B6F66B5ED085D4B16FBF8E1C6"
+        },
+        {
+          "tcId": 28,
+          "mac": "041DB336C633820208475257"
+        },
+        {
+          "tcId": 29,
+          "mac": "01C234C59436CC91DED64BE1A28A41CC03"
+        },
+        {
+          "tcId": 30,
+          "mac": "C055866F86370B84D8EA2464370409C62BD9"
+        },
+        {
+          "tcId": 31,
+          "mac": "E531CA400F42822E1A059A1E5822C989"
+        },
+        {
+          "tcId": 32,
+          "mac": "DF3319E268902D4BBD78965A72AE33756EBAC209"
+        },
+        {
+          "tcId": 33,
+          "mac": "62CF1B597B7E18282CE2"
+        },
+        {
+          "tcId": 34,
+          "mac": "6550D1F95CDB68D1759468D1F7"
+        },
+        {
+          "tcId": 35,
+          "mac": "F9218090DC30C84797F24C84AABA554C20BCB4"
+        },
+        {
+          "tcId": 36,
+          "mac": "E20DC0CA6F61EC42A3B6F0CD270B59"
+        },
+        {
+          "tcId": 37,
+          "mac": "17BB8EB26062B83C0B3D5E74573E"
+        },
+        {
+          "tcId": 38,
+          "mac": "C2B6D12F7715BAF5E8996B28221A53E5B93C7F1D"
+        },
+        {
+          "tcId": 39,
+          "mac": "1E678178A4F2384C6BD8C2513AF5829C40DBD0"
+        },
+        {
+          "tcId": 40,
+          "mac": "86E561DFCDC71FF6FC1255FC446A6EE207767B14"
+        },
+        {
+          "tcId": 41,
+          "mac": "29443FCF3B3F7E7A3A498650"
+        },
+        {
+          "tcId": 42,
+          "mac": "5F6545D9A2BA18986019BA"
+        },
+        {
+          "tcId": 43,
+          "mac": "ADB23A3C76BFF7A691A3D992A5D444A17A26"
+        },
+        {
+          "tcId": 44,
+          "mac": "CF9BE518FFB8589790608674505016"
+        },
+        {
+          "tcId": 45,
+          "mac": "8D88264A5F65BDDBFE47"
+        },
+        {
+          "tcId": 46,
+          "mac": "1CE12EC0A672EF5C0A65DB72F6"
+        },
+        {
+          "tcId": 47,
+          "mac": "C94E6E86347D10CAE5801AE27EBE9E19"
+        },
+        {
+          "tcId": 48,
+          "mac": "7B5A4E20BEFA1F6844F9"
+        },
+        {
+          "tcId": 49,
+          "mac": "5FB8C2445E30BB13E36D251B2AB16D79B3"
+        },
+        {
+          "tcId": 50,
+          "mac": "02A45B09501794955482B714B9B4D103"
+        },
+        {
+          "tcId": 51,
+          "mac": "EC3C2DAB83461394097333"
+        },
+        {
+          "tcId": 52,
+          "mac": "A79225086BD0B297837CE317355C316C1616"
+        },
+        {
+          "tcId": 53,
+          "mac": "A89473AE6E3F01FA2AD13BDF3288A5037817DF45"
+        },
+        {
+          "tcId": 54,
+          "mac": "D7606A6C1575BE691A48"
+        },
+        {
+          "tcId": 55,
+          "mac": "DB9FD6668C74E0B7DB2733BA0A663A"
+        },
+        {
+          "tcId": 56,
+          "mac": "50E59CF63E6C4205E2F0DE7291D16D1AD49CD1E4"
+        },
+        {
+          "tcId": 57,
+          "mac": "A22DCC865E94EBB5A0ACAFD2A0AD"
+        },
+        {
+          "tcId": 58,
+          "mac": "B69BE85698BE2F51CF4AB057BB"
+        },
+        {
+          "tcId": 59,
+          "mac": "049C887348A055A72E15"
+        },
+        {
+          "tcId": 60,
+          "mac": "8608D89EC419CE2AE64B1149CA"
+        },
+        {
+          "tcId": 61,
+          "mac": "95FF6179A183345D2A1C57D17045455D27183E9E"
+        },
+        {
+          "tcId": 62,
+          "mac": "82033934E8DEAEF4FDD6"
+        },
+        {
+          "tcId": 63,
+          "mac": "3E174ACF98A623125DF438FAC06D145645E2"
+        },
+        {
+          "tcId": 64,
+          "mac": "EC8D9D32B57011149D8546"
+        },
+        {
+          "tcId": 65,
+          "mac": "464FEC57A2F774E5E3AA29EC2EB589E852"
+        },
+        {
+          "tcId": 66,
+          "mac": "895EB955C47D47CC2A22891D55FCAC931259"
+        },
+        {
+          "tcId": 67,
+          "mac": "0D83920FBEB2003AAA208A903B9F226C5317637A"
+        },
+        {
+          "tcId": 68,
+          "mac": "E95143E0B6265DA2D9907DD3F53E7C75"
+        },
+        {
+          "tcId": 69,
+          "mac": "BB4121995F4F4B1C4353C9E258784DB47DB04EEF"
+        },
+        {
+          "tcId": 70,
+          "mac": "B59C50762CC9B4C9D6D30B"
+        },
+        {
+          "tcId": 71,
+          "mac": "85F770A3757C45682343114B3FD55C"
+        },
+        {
+          "tcId": 72,
+          "mac": "FCD842782C33F927BFB890C276D1"
+        },
+        {
+          "tcId": 73,
+          "mac": "64CCDFC22D64A2265B1AE85412A83683898265"
+        },
+        {
+          "tcId": 74,
+          "mac": "4673F7627C2B221753813A76"
+        },
+        {
+          "tcId": 75,
+          "mac": "16B39FE21E45B9138EB4C8473598B63E10"
+        },
+        {
+          "tcId": 76,
+          "mac": "7520677A0CF4FC1E3D60"
+        },
+        {
+          "tcId": 77,
+          "mac": "FEA2FAFD5DB27BB106DA"
+        },
+        {
+          "tcId": 78,
+          "mac": "A809578D196176289DB8602295"
+        },
+        {
+          "tcId": 79,
+          "mac": "2E8572AD0923DE048BDCF4B21893C6"
+        },
+        {
+          "tcId": 80,
+          "mac": "934CFD1DC6D0E5E58658"
+        },
+        {
+          "tcId": 81,
+          "mac": "1ED393389F18AF14E08535"
+        },
+        {
+          "tcId": 82,
+          "mac": "0AD0C5B468CCC45EBE7717AC6881D6D7"
+        },
+        {
+          "tcId": 83,
+          "mac": "5B2F8A90113E5976F22CD2A380F92D8F926410C5"
+        },
+        {
+          "tcId": 84,
+          "mac": "D551DFEA5C3818482DF3"
+        },
+        {
+          "tcId": 85,
+          "mac": "577B0F5D012277E767D1977AFC"
+        },
+        {
+          "tcId": 86,
+          "mac": "591E50370E2C584F70B3F910"
+        },
+        {
+          "tcId": 87,
+          "mac": "AED7A0A50E41C93BED86D001D220AE"
+        },
+        {
+          "tcId": 88,
+          "mac": "1ADFEC74D0B6646104BE570AA292636ECC7F4E"
+        },
+        {
+          "tcId": 89,
+          "mac": "9842AE94DFA368E251E8"
+        },
+        {
+          "tcId": 90,
+          "mac": "DA2B9BA24946DDE6943C828C3C0B9E79"
+        },
+        {
+          "tcId": 91,
+          "mac": "B467E8A740DEB5B42FD0870241A1"
+        },
+        {
+          "tcId": 92,
+          "mac": "5B2E95CC8F895B5DAD6A5D926FB449170C016936"
+        },
+        {
+          "tcId": 93,
+          "mac": "2849E7FB6716A5B6C1FF747662F52119E5AEBA"
+        },
+        {
+          "tcId": 94,
+          "mac": "A7BB69DA0429726A505287D044B3DF7AE7"
+        },
+        {
+          "tcId": 95,
+          "mac": "207718AA68A240A1850E"
+        },
+        {
+          "tcId": 96,
+          "mac": "A4A8B09223C0FC15DB30E0"
+        },
+        {
+          "tcId": 97,
+          "mac": "2BB8ECFC7BB9B9BFF681547CAA81DE27"
+        },
+        {
+          "tcId": 98,
+          "mac": "E754E81EEE1955BE5D0F663A7DF86920B873"
+        },
+        {
+          "tcId": 99,
+          "mac": "76FC3EC709EDBA553C799A1FC70A13"
+        },
+        {
+          "tcId": 100,
+          "mac": "CEF0335666939ADECA05D34CBFF34A86"
+        },
+        {
+          "tcId": 101,
+          "mac": "A4858DE59058E9772886"
+        },
+        {
+          "tcId": 102,
+          "mac": "5238C64B8FC8618F5481"
+        },
+        {
+          "tcId": 103,
+          "mac": "F46BB12B1A67F0CF709FC0C7922794"
+        },
+        {
+          "tcId": 104,
+          "mac": "202561ECA3314C8B8097CFA037"
+        },
+        {
+          "tcId": 105,
+          "mac": "8F956650C8122472C0DD4E2CF791041765D7C6"
+        },
+        {
+          "tcId": 106,
+          "mac": "6E927067F724D4FEDC96B310C5115979E8DDE8A4"
+        },
+        {
+          "tcId": 107,
+          "mac": "AA0357D25D942E7F616E"
+        },
+        {
+          "tcId": 108,
+          "mac": "12D44C7E929841E800E1C68C5AB87E61C9"
+        },
+        {
+          "tcId": 109,
+          "mac": "1EFD0F967DB46764CFF22AE59E15"
+        },
+        {
+          "tcId": 110,
+          "mac": "9CF6DEF15B5EAD939E1FDA675B52147A01A6CCB6"
+        },
+        {
+          "tcId": 111,
+          "mac": "C05E91FDFF2D288CBC9C1F7416206AB0076A561D"
+        },
+        {
+          "tcId": 112,
+          "mac": "3A01C8C85A5122C14550B39E"
+        },
+        {
+          "tcId": 113,
+          "mac": "28A5AB9803CDA30592F0CFB56C8F1FB50A13C3DB"
+        },
+        {
+          "tcId": 114,
+          "mac": "1A732710ECB369F202CE"
+        },
+        {
+          "tcId": 115,
+          "mac": "D7FB98F11E610F2A0DA1A27D9667E0C4"
+        },
+        {
+          "tcId": 116,
+          "mac": "A2D6B3C4175E1605E9F3EA84D9"
+        },
+        {
+          "tcId": 117,
+          "mac": "CFCF5288EC4B23DC9A0EFF4BC483"
+        },
+        {
+          "tcId": 118,
+          "mac": "786B25DF5A71C691DAAF60"
+        },
+        {
+          "tcId": 119,
+          "mac": "E02E62EAC1008235861B"
+        },
+        {
+          "tcId": 120,
+          "mac": "130EA8EFE98B1B4E74CBA4F87243BA53D532"
+        },
+        {
+          "tcId": 121,
+          "mac": "8AE2203E3B85D35EC2E18F53CBE32701FD"
+        },
+        {
+          "tcId": 122,
+          "mac": "72D3216D1073B5BAFCE6F0E6"
+        },
+        {
+          "tcId": 123,
+          "mac": "86AF7A5C5D2AB069BF469B0C926A2A4AECFD6F"
+        },
+        {
+          "tcId": 124,
+          "mac": "2D77EA5A57315CA1F900AA7F1F534E71"
+        },
+        {
+          "tcId": 125,
+          "mac": "B3E5E96B84CF18D68CB700CC8D105DDB2032"
+        },
+        {
+          "tcId": 126,
+          "mac": "BA76C2B933C341C2F64C80BF9431D921CAE54D1D"
+        },
+        {
+          "tcId": 127,
+          "mac": "EAEDC92440CEDB7297EB2B936B173DA4C1F2"
+        },
+        {
+          "tcId": 128,
+          "mac": "00EFD7046F81168DC16BF5A2"
+        },
+        {
+          "tcId": 129,
+          "mac": "36095A593A933EECCC38"
+        },
+        {
+          "tcId": 130,
+          "mac": "0F670BF717059775E49B4E9909CF9EB2ECAECD2B"
+        },
+        {
+          "tcId": 131,
+          "mac": "FD5D7DD82BC159933FAE72"
+        },
+        {
+          "tcId": 132,
+          "mac": "4C9646EAB6917DC16EA41BA41E0A2CE531CA96AD"
+        },
+        {
+          "tcId": 133,
+          "mac": "0643BAB241E63183C928"
+        },
+        {
+          "tcId": 134,
+          "mac": "E73D2634BD2EADC62F4FD5"
+        },
+        {
+          "tcId": 135,
+          "mac": "7D1DE555E7695EAB857B60"
+        },
+        {
+          "tcId": 136,
+          "mac": "040DD1B74755681DEAE9D4C5A8AE0B12C7C9A48E"
+        },
+        {
+          "tcId": 137,
+          "mac": "A5AE8509C009922AA7F4"
+        },
+        {
+          "tcId": 138,
+          "mac": "13CA3249A4A6FAB0C0C8406959"
+        },
+        {
+          "tcId": 139,
+          "mac": "75D1F5C7F6B6E98C7D847E22A625A8"
+        },
+        {
+          "tcId": 140,
+          "mac": "978C3D6218AA7EFF116E11B2"
+        },
+        {
+          "tcId": 141,
+          "mac": "F4A5636D3D3B6E2186B32FC13A49E3"
+        },
+        {
+          "tcId": 142,
+          "mac": "E63DD39EB5F406C4A93DCDEF6622474CA38323"
+        },
+        {
+          "tcId": 143,
+          "mac": "EEC57873FC65A7B023C8E954A52AB5431F"
+        },
+        {
+          "tcId": 144,
+          "mac": "B7688449D600F1D5A7D77F9BD08ADC0343D488"
+        },
+        {
+          "tcId": 145,
+          "mac": "AE44A47505B785F4E82F480DB3C665B3E4092B"
+        },
+        {
+          "tcId": 146,
+          "mac": "1E66D85FEECEC581F16D46B23FAFAF7E25"
+        },
+        {
+          "tcId": 147,
+          "mac": "B7DE01FFB77C423D92F4AA0EC904"
+        },
+        {
+          "tcId": 148,
+          "mac": "1186921C80CC19AC9034"
+        },
+        {
+          "tcId": 149,
+          "mac": "7F75783BE3832E3352ADA2692B51D8E746D8A31C"
+        },
+        {
+          "tcId": 150,
+          "mac": "1392BCF6674411FC1BD86DF2575B9BAB"
+        }
+      ]
+    }
+  ]
+}
