@@ -13,7 +13,7 @@ public structure BlockUpdateResult (State : Type) (blockSize : Nat) where
   buffer : ByteArray
   buffer_lt : buffer.size < blockSize
 
-def absorbByte (blockSize : Nat) (blockSize_pos : 0 < blockSize)
+@[inline] def absorbByte (blockSize : Nat) (blockSize_pos : 0 < blockSize)
     (process : State → Crypto.ByteVector blockSize → State)
     (current : BlockUpdateResult State blockSize) (byte : UInt8) :
     BlockUpdateResult State blockSize :=
@@ -78,8 +78,7 @@ def updateBufferedFast (blockSize : Nat) (blockSize_pos : 0 < blockSize)
     BlockUpdateResult State blockSize :=
   updateBufferedFrom blockSize blockSize_pos process input 0 (by omega) initial buffer buffer_lt
 
-@[implemented_by updateBufferedFast]
-def updateBuffered (blockSize : Nat) (blockSize_pos : 0 < blockSize)
+@[specialize] def updateBuffered (blockSize : Nat) (blockSize_pos : 0 < blockSize)
     (process : State → Crypto.ByteVector blockSize → State) (initial : State)
     (buffer input : ByteArray) (buffer_lt : buffer.size < blockSize) :
     BlockUpdateResult State blockSize :=

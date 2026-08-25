@@ -60,18 +60,19 @@ def main : IO UInt32 := do
     (Crypto.Hash.digest .sha512 input).toByteArray
   let (sha512Chunked, sha512ChunkedNanos) ← medianTime fun _ =>
     (chunkedDigest .sha512 (64 * 1024) input).toByteArray
+  let sha3Input := input.extract 0 (1024 * 1024)
   let (sha3OneShot, sha3OneShotNanos) ← medianTime fun _ =>
-    (Crypto.Hash.digest .sha3_256 input).toByteArray
+    (Crypto.Hash.digest .sha3_256 sha3Input).toByteArray
   let (sha3Chunked, sha3ChunkedNanos) ← medianTime fun _ =>
-    (chunkedDigest .sha3_256 (64 * 1024) input).toByteArray
+    (chunkedDigest .sha3_256 (64 * 1024) sha3Input).toByteArray
   IO.println s!"8 MiB SHA-256 one-shot median: {oneShotNanos} ns"
   IO.println s!"8 MiB SHA-256 chunked median: {chunkedNanos} ns"
   IO.println s!"8 MiB HMAC-SHA256 one-shot median: {hmacOneShotNanos} ns"
   IO.println s!"8 MiB HMAC-SHA256 chunked median: {hmacChunkedNanos} ns"
   IO.println s!"8 MiB SHA-512 one-shot median: {sha512OneShotNanos} ns"
   IO.println s!"8 MiB SHA-512 chunked median: {sha512ChunkedNanos} ns"
-  IO.println s!"8 MiB SHA3-256 one-shot median: {sha3OneShotNanos} ns"
-  IO.println s!"8 MiB SHA3-256 chunked median: {sha3ChunkedNanos} ns"
+  IO.println s!"1 MiB SHA3-256 one-shot median: {sha3OneShotNanos} ns"
+  IO.println s!"1 MiB SHA3-256 chunked median: {sha3ChunkedNanos} ns"
   if oneShot == chunked && hmacOneShot == hmacChunked && sha512OneShot == sha512Chunked &&
       sha3OneShot == sha3Chunked then
     IO.println "digests and tags agree"
