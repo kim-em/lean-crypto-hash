@@ -146,7 +146,7 @@ theorem ByteArray.padKeccak_prefix (data : ByteArray) (rateBytes : Nat) (suffix 
 theorem ByteArray.padKeccak_aligned (data : ByteArray) (rateBytes : Nat) (suffix : UInt8)
     (rateBytes_pos : 0 < rateBytes) :
     (Crypto.Hash.Internal.SHA3.ByteArray.padKeccak data rateBytes suffix).size % rateBytes = 0 := by
-  simp only [ByteArray.padKeccak, if_neg (Nat.ne_of_gt rateBytes_pos)]
+  simp only [ByteArray.padKeccak, ite_eq_right (Nat.ne_of_gt rateBytes_pos)]
   split <;> rename_i h
   · simp only [ByteArray.size_push]
     by_cases rateBytes_one : rateBytes = 1
